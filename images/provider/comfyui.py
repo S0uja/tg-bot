@@ -117,10 +117,12 @@ class ComfyUIImageGenerator:
             negative_node = clip_nodes[1] if len(clip_nodes) > 1 else None
         if isinstance(negative_node, dict) and isinstance(negative_node.get("inputs"), dict):
             negative = str(negative_node["inputs"].get("text", ""))
-            if character.weight_profile == "Толстая":
+            if character.weight_profile == "Очень худая":
+                negative += ", curvy body, curvy figure, plus-size body, fuller body, wide hips, wide waist, thick thighs, full thighs, full abdomen, rounded hips, fuller arms, heavy body, substantial body mass, large body volume, voluptuous body, hourglass figure"
+            elif character.weight_profile == "Толстая":
                 negative += ", slim body, skinny body, thin arms, narrow waist, flat abdomen, slender build"
             elif character.weight_profile == "Худая":
-                negative += ", obese body, very heavy body, extremely wide waist"
+                negative += ", obese body, very heavy body, extremely wide waist, thick thighs, very wide hips, large abdomen"
             bust_negative = {
                 1: "large bust, large breasts, full breasts, very large breasts, prominent cleavage, heavy chest",
                 2: "very large breasts, extremely large bust, exaggerated breast volume",
@@ -192,10 +194,12 @@ class ComfyUIImageGenerator:
                 body_ipadapter = workflow.get("5")
                 if isinstance(body_ipadapter, dict) and body_ipadapter.get("class_type") == "IPAdapterAdvanced":
                     bi = body_ipadapter.setdefault("inputs", {})
-                    bi["weight"] = 0.30
+                    reference_body_weight = 0.20 if character.weight_profile == "Очень худая" else 0.30
+                    reference_body_end = 0.55 if character.weight_profile == "Очень худая" else 0.65
+                    bi["weight"] = reference_body_weight
                     bi["start_at"] = 0.0
-                    bi["end_at"] = 0.65
-                    self.logger.info("[BODY LOCK REFERENCE] IP-Adapter weight=0.30 end=0.65")
+                    bi["end_at"] = reference_body_end
+                    self.logger.info("[BODY LOCK REFERENCE] IP-Adapter weight=%s end=%s profile=%s", reference_body_weight, reference_body_end, character.weight_profile)
 
             depth_filename = None
             depth_path = None
