@@ -200,7 +200,6 @@ class ComfyUIImageGenerator:
                     body_filename,
                 )
 
-
         # Pose selection is owned by ImageGenerationService/VideoGenerationService.
         # The original pose image is intentionally NOT fed into the SD1.5 graph.
         # OpenPose controls geometry while the character references control identity.
@@ -246,6 +245,8 @@ class ComfyUIImageGenerator:
             # V8: feed the parser's *_depth.png into a second SD1.5 Depth ControlNet.
             # The depth branch is optional: old pose folders without a depth map keep
             # the exact V4 OpenPose-only path.
+            depth_filename = None
+            depth_path = None
             if depth_image is None:
                 # No depth companion: preserve the proven OpenPose-only workflow.
                 sampler = next(
@@ -316,13 +317,16 @@ class ComfyUIImageGenerator:
                     sampler.setdefault("inputs", {})["seed"] = int(generation_seed)
 
             logger.info(
-                    "[POSE DEPTH V8] Depth=%s exists=%s model=%s strength=0.65 end=1.0",
-                    depth_filename, depth_path.is_file(), self.controlnet_depth_model,
-                )
+                "[POSE DEPTH V8] Depth=%s exists=%s model=%s strength=0.65 end=1.0",
+                depth_filename or "none",
+                bool(depth_path and depth_path.is_file()),
+                self.controlnet_depth_model,
+            )
 
         for node in workflow.values():
             if isinstance(node, dict) and node.get("class_type") == "KSampler":
-                node.setdefault("inputs", {})["seed"] = random.randint(0, 2**32 - 1)
+                if generation_seed is None:
+                    node.setdefault("inputs", {})["seed"] = random.randint(0, 2**32 - 1)
                 break
         return workflow
 
