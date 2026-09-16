@@ -7,81 +7,101 @@
   },
   "2": {
     "inputs": {
-      "text": "photorealistic, high detail, exactly one adult woman, single person, solo, follow the supplied OpenPose control image precisely; preserve body orientation and limb positions; natural full-body composition; no second person, duplicate, clone, twin, background person, reflection-person, collage.",
-      "clip": [
-        "1",
-        1
-      ]
+      "clip_name": "model.safetensors"
     },
-    "class_type": "CLIPTextEncode"
+    "class_type": "CLIPVisionLoader"
   },
   "3": {
     "inputs": {
-      "text": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, watermark, two women, two people, multiple people, group, crowd, duplicate person, clone, twin, second person, background person, reflection person, split subject, collage, double exposure",
-      "clip": [
-        "1",
-        1
-      ]
+      "ipadapter_file": "ip-adapter_sd15.bin"
     },
-    "class_type": "CLIPTextEncode"
+    "class_type": "IPAdapterModelLoader"
   },
   "4": {
     "inputs": {
-      "width": 512,
-      "height": 768,
-      "batch_size": 1
+      "image": "telegram_body_lock.png"
     },
-    "class_type": "EmptyLatentImage"
+    "class_type": "LoadImage"
   },
   "5": {
     "inputs": {
-      "seed": 0,
-      "steps": 30,
-      "cfg": 5,
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
-      "denoise": 1.0,
+      "weight": 0.24,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0.0,
+      "end_at": 0.45,
+      "embeds_scaling": "V only",
       "model": [
         "1",
         0
       ],
-      "positive": [
-        "15",
+      "ipadapter": [
+        "3",
         0
       ],
-      "negative": [
-        "15",
-        1
-      ],
-      "latent_image": [
+      "image": [
         "4",
+        0
+      ],
+      "clip_vision": [
+        "2",
         0
       ]
     },
-    "class_type": "KSampler"
+    "class_type": "IPAdapterAdvanced"
   },
   "6": {
     "inputs": {
-      "samples": [
-        "5",
-        0
-      ],
-      "vae": [
+      "text": "photorealistic, high detail, exactly one adult woman per view, three consistent views of the same woman, complete head and face, head fully inside the frame, visible neck, realistic facial features, full body from head to feet, very slender body when the character profile specifies a thin body, narrow waist, slender arms and legs; use OpenPose only for pose and limb placement, use Depth only as a weak spatial guide, do not copy the depth silhouette as body shape",
+      "clip": [
         "1",
-        2
+        1
       ]
     },
-    "class_type": "VAEDecode"
+    "class_type": "CLIPTextEncode"
+  },
+  "7": {
+    "inputs": {
+      "text": "headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, two people in one view, duplicate person, duplicate body, clone, twin, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body, bulky body, wide waist, heavy silhouette",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "8": {
+    "inputs": {
+      "image": "telegram_face.png"
+    },
+    "class_type": "LoadImage"
   },
   "9": {
     "inputs": {
-      "filename_prefix": "TelegramBotVideoStart",
-      "images": [
-        "6",
+      "weight": 0.55,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0.0,
+      "end_at": 0.70,
+      "embeds_scaling": "V only",
+      "model": [
+        "5",
+        0
+      ],
+      "ipadapter": [
+        "3",
+        0
+      ],
+      "image": [
+        "8",
+        0
+      ],
+      "clip_vision": [
+        "2",
         0
       ]
     },
-    "class_type": "SaveImage"
+    "class_type": "IPAdapterAdvanced"
   },
   "10": {
     "inputs": {
@@ -101,11 +121,11 @@
       "start_percent": 0.0,
       "end_percent": 1.0,
       "positive": [
-        "2",
+        "6",
         0
       ],
       "negative": [
-        "3",
+        "7",
         0
       ],
       "control_net": [
@@ -139,7 +159,7 @@
   },
   "15": {
     "inputs": {
-      "strength": 0.65,
+      "strength": 0.25,
       "start_percent": 0.0,
       "end_percent": 1.0,
       "positive": [
@@ -166,5 +186,63 @@
       "strength_clip": 1.0
     },
     "class_type": "ControlNetApplyAdvanced"
+  },
+  "16": {
+    "inputs": {
+      "width": 768,
+      "height": 512,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage"
+  },
+  "17": {
+    "inputs": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": [
+        "9",
+        0
+      ],
+      "positive": [
+        "15",
+        0
+      ],
+      "negative": [
+        "15",
+        1
+      ],
+      "latent_image": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "18": {
+    "inputs": {
+      "samples": [
+        "17",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "19": {
+    "inputs": {
+      "filename_prefix": "TelegramBotReference",
+      "images": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
   }
 }
