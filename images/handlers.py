@@ -54,25 +54,31 @@ def register(router: Router, ctx: TelegramContext) -> None:
         character_id = int(callback.data.split(":", 1)[1])
         try:
             await character_service.get(callback.from_user.id, character_id)
-            await callback.answer("Генерирую reference sheet…")
-            await edit_ui(callback.message, 
-                "🖼 <b>Создаю reference sheet…</b>\n\n"
-                "Два full-body ракурса: фронтальный + three-quarter.\n"
-                "Оба лица будут обработаны ReActor.",
+            await callback.answer("Генерирую персонажа по reference-позе…")
+            await edit_ui(callback.message,
+                "🖼 <b>Создаю персонажа по reference-позе…</b>\n\n"
+                "Поза берётся из папки <code>poses/reference</code>.\n"
+                "Reference-изображение используется только как ControlNet-поза; пользователю отправляется только готовый персонаж.",
                 parse_mode="HTML",
             )
-            _, result, _ = await image_service.generate_character_control(
+            character, result, generation_id = await image_service.generate(
                 user_id=callback.from_user.id,
                 character_id=character_id,
-                stage="reference_sheet",
+                scene=(
+                    "Generate the character using the selected reference pose. "
+                    "Use the reference only to control the body pose. Preserve the character's "
+                    "identity, face, hair, body proportions, clothing and established visual appearance. "
+                    "Return one realistic final image of the character."
+                ),
+                pose="reference",
             )
             await callback.message.answer_photo(
-                types.BufferedInputFile(result, filename="reference_sheet.png"),
-                caption="🖼 Reference sheet готов.",
-                reply_markup=character_actions(character_id),
+                types.BufferedInputFile(result, filename="reference.png"),
+                caption="🖼 Reference готов.",
+                reply_markup=image_actions(character.id, generation_id),
             )
         except AppError as exc:
-            await edit_ui(callback.message, f"❌ Не удалось создать reference sheet: {exc}", reply_markup=character_actions(character_id))
+            await edit_ui(callback.message, f"❌ Не удалось создать reference: {exc}", reply_markup=character_actions(character_id))
 
 
     @router.callback_query(F.data == "menu:image")
