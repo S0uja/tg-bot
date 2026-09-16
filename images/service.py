@@ -17,13 +17,30 @@ from poses.orientation import PoseOrientationCache
 
 
 def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes | None, Path | None, bytes | None]:
-    """Select a random pose image from the correct physical media folder."""
+    """Select a pose control image and its optional synchronized depth map."""
     category = resolve_pose(pose, scene)
     if not category:
         return "", None, None, None, None
 
     category_dir = pose_category_root(category)
     exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+
+    # Reference has a fixed, explicit pair. Do not derive the depth filename
+    # from the OpenPose filename: reference_openpose.png is paired with
+    # reference_depth.png by design.
+    if category == "reference":
+        openpose_path = category_dir / "reference_openpose.png"
+        depth_path = category_dir / "reference_depth.png"
+        if openpose_path.is_file():
+            depth_bytes = depth_path.read_bytes() if depth_path.is_file() else None
+            return (
+                category,
+                openpose_path,
+                normalize_pose_image(openpose_path.read_bytes()),
+                depth_path if depth_path.is_file() else None,
+                depth_bytes,
+            )
+
     candidates = [f for f in category_dir.rglob("*") if f.is_file() and f.suffix.lower() in exts] if category_dir.is_dir() else []
     if not candidates:
         return category, None, None, None, None
@@ -93,7 +110,7 @@ class ImageGenerationService:
                 dedicated_pose = pose_category in {"reference", "selfie"}
                 if settings.feature_poses_enabled or dedicated_pose:
                     pose_category, selected_pose_path, pose_image, depth_reference_path, depth_reference_image = _select_pose_image(pose, scene)
-                    if selected_pose_path is not None:
+                    if selected_pose_path is not None and pose_category != "reference":
                         orientation_info = await self.pose_orientation_cache.ensure(selected_pose_path)
                         pose_orientation = orientation_info["orientation"]
                         pose_face_visible = orientation_info["face_visible"]
@@ -105,7 +122,7 @@ class ImageGenerationService:
                 if pose_image is None:
                     expected_dir = pose_category_root(pose_category or pose or "...")
                     raise ProviderError(f"Не найдена картинка позы '{pose}' в {expected_dir}.")
-                logging.getLogger("image_generation").info("[IMAGE POSE] selected category=%s path=%s orientation=%s face_visible=%s bytes=%d", pose_category, selected_pose_path, pose_orientation, pose_face_visible, len(pose_image))
+                logging.getLogger("image_generation").info("[IMAGE POSE] selected category=%s path=%s orientation=%s face_visible=%s bytes=%d depth=%s", pose_category, selected_pose_path, pose_orientation, pose_face_visible, len(pose_image), depth_reference_path)
 
             prompt = await self.prompt_service.build_image_prompt(ImagePromptContext(character_description=character.description, scene=scene, pose=pose, clothing=clothing, weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength, pose_orientation=pose_orientation))
             face_bytes = await self.storage.read(character.face_file_id) if character.face_file_id else None
