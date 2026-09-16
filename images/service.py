@@ -36,7 +36,7 @@ def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes |
             return (
                 category,
                 openpose_path,
-                normalize_pose_image(openpose_path.read_bytes()),
+                normalize_pose_image(openpose_path.read_bytes(), target_size=(768, 512)),
                 depth_path if depth_path.is_file() else None,
                 depth_bytes,
             )
@@ -97,7 +97,7 @@ class ImageGenerationService:
                     raise ProviderError("Для pose reference не указан оригинал для анализа ориентации.")
                 pose_orientation = orientation_info["orientation"]
                 pose_face_visible = orientation_info["face_visible"]
-                pose_image = normalize_pose_image(pose_reference_image)
+                pose_image = normalize_pose_image(pose_reference_image, target_size=(768, 512) if pose_category == "reference" else None)
                 if explicit_depth_image is not None:
                     depth_reference_image = explicit_depth_image
                     depth_reference_path = explicit_depth_path
@@ -133,7 +133,7 @@ class ImageGenerationService:
                 except (OSError, FileNotFoundError):
                     body_reference = None
             use_pose_workflow = bool(pose_image is not None and self.video_start_frame_workflow_path)
-            result = await self.image_provider.generate(character=character, prompt=prompt.positive, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=depth_strength if use_pose_workflow else None, generation_seed=generation_seed, generation_size=(768, 512) if pose_category == "reference" else None)
+            result = await self.image_provider.generate(character=character, prompt=prompt.positive, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=depth_strength if use_pose_workflow else None, generation_seed=generation_seed)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
             result_path = await self.storage.save(result, f"generation_{generation_id}.png")
