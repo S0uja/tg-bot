@@ -146,8 +146,11 @@ def register(router: Router, ctx: TelegramContext) -> None:
                 reply_markup=image_actions(character_id, generation_id),
             )
         try:
+            # regenerate() restores the character from the saved generation;
+            # character_id is already stored in that generation and must not be
+            # passed as a separate positional argument.
             character, result, new_generation_id = await image_service.regenerate(
-                callback.from_user.id, character_id, generation_id
+                callback.from_user.id, generation_id
             )
             await callback.message.edit_media(
                 media=types.InputMediaPhoto(
