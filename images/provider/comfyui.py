@@ -191,15 +191,22 @@ class ComfyUIImageGenerator:
             logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=1.0 end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model)
 
             if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6:
+                # Reference mode: completely bypass body IP-Adapter.
+                # Face IP-Adapter stays active for identity; body shape is controlled
+                # by the character profile, prompt and pose/depth conditioning.
                 body_ipadapter = workflow.get("5")
                 if isinstance(body_ipadapter, dict) and body_ipadapter.get("class_type") == "IPAdapterAdvanced":
                     bi = body_ipadapter.setdefault("inputs", {})
-                    reference_body_weight = 0.20 if character.weight_profile == "Очень худая" else 0.30
-                    reference_body_end = 0.55 if character.weight_profile == "Очень худая" else 0.65
-                    bi["weight"] = reference_body_weight
+                    bi["weight"] = 0.0
                     bi["start_at"] = 0.0
-                    bi["end_at"] = reference_body_end
-                    self.logger.info("[BODY LOCK REFERENCE] IP-Adapter weight=%s end=%s profile=%s", reference_body_weight, reference_body_end, character.weight_profile)
+                    bi["end_at"] = 0.0
+                face_ipadapter = workflow.get("9")
+                if isinstance(face_ipadapter, dict) and face_ipadapter.get("class_type") == "IPAdapterAdvanced":
+                    fi = face_ipadapter.setdefault("inputs", {})
+                    fi["model"] = ["1", 0]
+                    self.logger.info("[BODY LOCK REFERENCE] Body IP-Adapter DISABLED; face IP-Adapter remains active.")
+                else:
+                    raise ProviderError("В start-frame workflow отсутствует Face IPAdapterAdvanced node 9.")
 
             depth_filename = None
             depth_path = None
