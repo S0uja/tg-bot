@@ -121,9 +121,9 @@ class ComfyUIImageGenerator:
             elif character.weight_profile == "Худая":
                 negative += ", obese body, very heavy body, extremely wide waist, thick thighs, very wide hips, large abdomen"
             bust_negative = {
-                1: "large bust, large breasts, full breasts, very large breasts, prominent cleavage, heavy chest",
-                2: "very large breasts, extremely large bust, exaggerated breast volume",
-                3: "flat chest, very small breasts, minimal bust",
+                1: "large bust, large breasts, full breasts, very large breasts, prominent cleavage, heavy chest, breast projection, pronounced bust",
+                2: "large breasts, very large breasts, extremely large bust, exaggerated breast volume, prominent cleavage, heavy chest",
+                3: "flat chest, nearly flat chest, very small breasts, minimal breast volume, minimal projection",
                 4: "flat chest, very small breasts, small bust, minimal breast volume",
             }.get(character.bust_size)
             if bust_negative:
