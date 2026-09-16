@@ -46,15 +46,15 @@ HAIR_COLOR_PROMPTS = {
 }
 
 AGE_PROMPTS = {
-    "Молодая": "young adult woman, approximately 20s, youthful facial features, smooth firm skin, minimal fine lines, no pronounced wrinkles, fresh youthful appearance, youthful body appearance, firm skin on arms and legs, firm natural body tissue, little visible skin laxity, youthful muscle tone",
-    "Милф": "mature adult woman, approximately late 30s to mid 40s, mature facial features, natural skin texture, subtle forehead lines, fine crow's feet, light nasolabial folds, slightly less firm skin, clearly adult but not elderly, mature body appearance, slightly softer skin on arms and legs, mild natural skin laxity, less youthful muscle tone",
-    "Зрелая": "older mature adult woman, approximately 55 to 65 years old, clearly mature facial features, pronounced forehead wrinkles, visible crow's feet, defined nasolabial folds, fine lines around the mouth, noticeable age-related skin texture, less firm skin, natural facial creases, realistic mature skin, visibly mature body appearance, softer skin on arms and legs, noticeable natural skin laxity, reduced muscle definition, age-appropriate body tissue",
+    "Молодая": "young adult woman, approximately 20s, same stable body shape and body mass, youthful skin quality, smooth even skin texture, firm skin surface, fine pores, high skin elasticity, minimal fine lines, minimal creasing at joints, fresh uniform skin texture on face, neck, arms, abdomen and legs",
+    "Милф": "adult woman approximately late 30s to mid 40s, same stable body shape and body mass, naturally mature skin quality, realistic fine skin texture, subtle fine lines, mild expression lines, slightly reduced skin elasticity, subtle natural creasing at joints, slightly softer skin texture on face, neck, arms, abdomen and legs, no major silhouette change",
+    "Зрелая": "adult woman approximately 55 to 65 years old, same stable body shape and body mass, clearly mature skin quality, realistic pronounced skin texture, visible fine and medium wrinkles, deeper natural skin creases, reduced skin elasticity, more noticeable natural folding and fine lines around joints, visibly textured skin on face, neck, arms, abdomen and legs, age-related skin changes without changing body weight or silhouette",
 }
 
 AGE_NEGATIVE_PROMPTS = {
-    "Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, sagging skin, age spots, elderly facial features, aged body appearance, pronounced skin laxity, loose skin, reduced muscle tone",
-    "Милф": "elderly facial features, deep severe wrinkles, heavy sagging skin, extreme age spots, strongly aged body appearance, pronounced loose skin, severe skin laxity",
-    "Зрелая": "very young face, youthful facial features, baby face, perfectly smooth skin, no wrinkles, unlined skin, youthful body appearance, very firm youthful skin, minimal skin laxity, high youthful muscle tone",
+    "Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, heavy skin texture, pronounced skin laxity, loose skin, strongly aged skin, severe creasing, elderly skin",
+    "Милф": "elderly skin, deep severe wrinkles, heavy sagging skin, extreme age spots, severe skin laxity, very loose skin, strongly aged skin texture",
+    "Зрелая": "perfectly smooth youthful skin, completely unlined skin, baby-smooth skin, minimal skin texture, high youthful skin elasticity, no fine lines, no natural creasing",
 }
 
 
