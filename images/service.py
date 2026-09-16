@@ -142,6 +142,24 @@ class ImageGenerationService:
                     "head fully inside frame, full body, natural slender body proportions, "
                     "single view, no triptych, no collage, do not reproduce multiple reference views"
                 )
+
+            prompt_logger = logging.getLogger("image_generation")
+            prompt_logger.info("\n========== IMAGE GENERATION PROMPT ==========")
+            prompt_logger.info("[POSITIVE]\n%s", effective_prompt or "<empty>")
+            prompt_logger.info(
+                "[PROFILE] character_id=%s weight=%s bust=%s age=%s hairstyle=%s hair_color=%s consistency=%s pose=%s clothing=%s",
+                character.id,
+                character.weight_profile,
+                character.bust_size,
+                character.age_category,
+                character.hairstyle,
+                character.hair_color,
+                character.consistency_strength,
+                pose,
+                clothing,
+            )
+            prompt_logger.info("========== END IMAGE GENERATION PROMPT ==========")
+
             result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
