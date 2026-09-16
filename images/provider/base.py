@@ -16,6 +16,9 @@ class ImageGenerator(Protocol):
         pose_image: bytes | None = None,
         pose_visual_reference_image: bytes | None = None,
         depth_image: bytes | None = None,
+        depth_strength: float | None = None,
+        generation_seed: int | None = None,
+        generation_size: tuple[int, int] | None = None,
     ) -> bytes: ...
 
     async def reface(self, *, image: bytes, face_reference: bytes, reactor_input_faces_index: str | None = None) -> bytes: ...
