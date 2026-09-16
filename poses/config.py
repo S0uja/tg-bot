@@ -15,6 +15,7 @@ DEFAULT_POSE_ALIASES: dict[str, tuple[str, ...]] = {
     "all_fours": ("четвереньк", "all fours"),
     "kneeling": ("на колен", "на колени", "kneeling"),
     "selfie": ("селфи", "selfie"),
+    "reference": ("reference", "референс", "референсная поза"),
     "lying": (
         "лежу", "лежит", "лежа", "лег", "легла",
         "на спине", "на животе", "на боку", "lying",
