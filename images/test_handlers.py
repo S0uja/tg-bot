@@ -71,7 +71,14 @@ def _make_sheet(items: list[tuple[str, bytes]], cell_width: int = 256, cell_heig
 
 
 def _variant_character(character: Character, parameter: str, value) -> Character:
-    data = {"weight_profile": character.weight_profile, "bust_size": character.bust_size, "age_category": character.age_category, "hairstyle": character.hairstyle, "hair_color": character.hair_color, "consistency_strength": character.consistency_strength}
+    data = {
+        "weight_profile": character.weight_profile,
+        "bust_size": character.bust_size,
+        "age_category": character.age_category,
+        "hairstyle": character.hairstyle,
+        "hair_color": character.hair_color,
+        "consistency_strength": character.consistency_strength,
+    }
     if parameter == "body":
         data["weight_profile"] = value
     elif parameter == "boobs":
@@ -108,6 +115,14 @@ def _variant_character(character: Character, parameter: str, value) -> Character
 
 
 async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str) -> None:
+    """Run a parameter sweep through the exact same Reference pipeline.
+
+    Every variant uses pose="reference", so the normal ImageGenerationService
+    selects data/media/reference/reference_openpose.png + reference_depth.png,
+    uses the Reference canvas 512x768, Reference Depth strength 0.15, the same
+    prompt construction, Face IP-Adapter/ReActor path, and Reference-specific
+    Body IP-Adapter handling as a real Reference generation.
+    """
     character_service = ctx.character_service
     image_service = ctx.image_service
     items = await character_service.list(message.from_user.id)
@@ -119,32 +134,20 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
     _, values = TESTS[parameter]
     results: list[tuple[str, bytes]] = []
     failures: list[str] = []
-    face = await character_service.read_face(character.face_file_id)
 
     for value in values:
         variant = _variant_character(character, parameter, value)
-        context = ImagePromptContext(
-            character_description=variant.description,
-            scene=SCENE,
-            weight_profile=variant.weight_profile,
-            bust_size=variant.bust_size,
-            age_category=variant.age_category,
-            hairstyle=variant.hairstyle,
-            hair_color=variant.hair_color,
-            consistency_strength=variant.consistency_strength,
-        )
-        prompt = f"{SCENE}, {profile_prompt(context)}"
         try:
-            result = await image_service.image_provider.generate(
-                character=variant,
-                prompt=prompt,
-                reference_image=face,
-                body_reference_image=None,
-                pose_image=None,
-                depth_image=None,
+            _, result, _ = await image_service.generate(
+                user_id=message.from_user.id,
+                character_id=variant.id,
+                scene=(
+                    f"{SCENE}. Generate this character using the selected reference pose. "
+                    "Use the reference only for the body pose and composition. "
+                    "Preserve the character identity and apply the tested profile parameter."
+                ),
+                pose="reference",
             )
-            if face:
-                result = await image_service.image_provider.reface(image=result, face_reference=face)
             results.append((str(value), result))
         except Exception as exc:
             failures.append(f"{value}: {exc}")
@@ -158,7 +161,11 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
     caption = f"🧪 <b>Тест: {title}</b>\nПерсонаж: <b>{character.name}</b>\nВариантов: {len(results)}/{len(values)}"
     if failures:
         caption += f"\nОшибок: {len(failures)}"
-    await message.answer_photo(types.BufferedInputFile(sheet, filename=f"test_{parameter}.jpg"), caption=caption, parse_mode="HTML")
+    await message.answer_photo(
+        types.BufferedInputFile(sheet, filename=f"test_{parameter}.jpg"),
+        caption=caption,
+        parse_mode="HTML",
+    )
 
 
 
