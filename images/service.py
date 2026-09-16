@@ -21,36 +21,24 @@ def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes |
     category = resolve_pose(pose, scene)
     if not category:
         return "", None, None, None, None
-
     category_dir = pose_category_root(category)
     exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-
     if category == "reference":
         openpose_path = category_dir / "reference_openpose.png"
         depth_path = category_dir / "reference_depth.png"
         if openpose_path.is_file():
             depth_bytes = depth_path.read_bytes() if depth_path.is_file() else None
-            return (
-                category,
-                openpose_path,
-                normalize_pose_image(openpose_path.read_bytes(), target_size=(768, 512)),
-                depth_path if depth_path.is_file() else None,
-                depth_bytes,
-            )
-
+            return (category, openpose_path, normalize_pose_image(openpose_path.read_bytes(), target_size=(768, 512)), depth_path if depth_path.is_file() else None, depth_bytes)
     candidates = [f for f in category_dir.rglob("*") if f.is_file() and f.suffix.lower() in exts] if category_dir.is_dir() else []
     if not candidates:
         return category, None, None, None, None
-
     originals = [f for f in candidates if not f.stem.lower().endswith("_noise_final_openpose") and not f.stem.lower().endswith("_depth")]
     selected_original = random.choice(originals) if originals else random.choice(candidates)
-
     if not selected_original.stem.lower().endswith("_noise_final_openpose"):
         skeleton = selected_original.with_name(selected_original.stem + "_noise_final_openpose.png")
         if skeleton.is_file():
             depth_path = selected_original.with_name(selected_original.stem + "_depth.png")
             return category, skeleton, normalize_pose_image(skeleton.read_bytes()), depth_path if depth_path.is_file() else None, depth_path.read_bytes() if depth_path.is_file() else None
-
     return category, selected_original, normalize_pose_image(selected_original.read_bytes()), None, None
 
 
@@ -82,7 +70,6 @@ class ImageGenerationService:
             explicit_depth_path = depth_reference_path
             depth_reference_image = None
             depth_reference_path = None
-
             if pose_reference_image is not None:
                 pose_category = pose or "reference"
                 selected_pose_path = pose_reference_path
@@ -114,13 +101,11 @@ class ImageGenerationService:
                 else:
                     pose_category, selected_pose_path, pose_image = "", None, None
                     depth_reference_path, depth_reference_image = None, None
-
             if pose or pose_reference_image is not None:
                 if pose_image is None:
                     expected_dir = pose_category_root(pose_category or pose or "...")
                     raise ProviderError(f"Не найдена картинка позы '{pose}' в {expected_dir}.")
                 logging.getLogger("image_generation").info("[IMAGE POSE] selected category=%s path=%s orientation=%s face_visible=%s bytes=%d depth=%s", pose_category, selected_pose_path, pose_orientation, pose_face_visible, len(pose_image), depth_reference_path)
-
             prompt = await self.prompt_service.build_image_prompt(ImagePromptContext(character_description=character.description, scene=scene, pose=pose, clothing=clothing, weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength, pose_orientation=pose_orientation))
             face_bytes = await self.storage.read(character.face_file_id) if character.face_file_id else None
             body_reference = None
@@ -129,37 +114,22 @@ class ImageGenerationService:
                     body_reference = await self.storage.read(character.body_reference_file_id)
                 except (OSError, FileNotFoundError):
                     body_reference = None
-
             if pose_image is not None and body_reference is None and face_bytes is not None:
                 body_reference = face_bytes
-
             use_pose_workflow = bool(pose_image is not None and self.video_start_frame_workflow_path)
             effective_prompt = prompt.positive
             if pose_category == "reference":
                 effective_prompt = (
                     f"{prompt.positive}, exactly one adult woman, one single person only, "
                     "one body only, one head only, one face only, complete head and face, "
-                    "head fully inside frame, full body, natural slender body proportions, "
-                    "single view, no triptych, no collage, do not reproduce multiple reference views"
+                    "head fully inside frame, full body, single view, no triptych, no collage, "
+                    "do not reproduce multiple reference views"
                 )
-
             prompt_logger = logging.getLogger("image_generation")
             prompt_logger.info("\n========== IMAGE GENERATION PROMPT ==========")
             prompt_logger.info("[POSITIVE]\n%s", effective_prompt or "<empty>")
-            prompt_logger.info(
-                "[PROFILE] character_id=%s weight=%s bust=%s age=%s hairstyle=%s hair_color=%s consistency=%s pose=%s clothing=%s",
-                character.id,
-                character.weight_profile,
-                character.bust_size,
-                character.age_category,
-                character.hairstyle,
-                character.hair_color,
-                character.consistency_strength,
-                pose,
-                clothing,
-            )
+            prompt_logger.info("[PROFILE] character_id=%s weight=%s bust=%s age=%s hairstyle=%s hair_color=%s consistency=%s pose=%s clothing=%s", character.id, character.weight_profile, character.bust_size, character.age_category, character.hairstyle, character.hair_color, character.consistency_strength, pose, clothing)
             prompt_logger.info("========== END IMAGE GENERATION PROMPT ==========")
-
             result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
@@ -181,13 +151,7 @@ class ImageGenerationService:
             raise ProviderError("Повторная генерация доступна только для изображений.")
         if generation.character_id is None:
             raise ProviderError("У генерации не указан персонаж.")
-        return await self.generate(
-            user_id=user_id,
-            character_id=generation.character_id,
-            scene=generation.prompt or "",
-            pose=generation.pose or "",
-            clothing=generation.clothing or "",
-        )
+        return await self.generate(user_id=user_id, character_id=generation.character_id, scene=generation.prompt or "", pose=generation.pose or "", clothing=generation.clothing or "")
 
     async def analyze_all_pose_orientations(self) -> tuple[int, int]:
         """Analyze all pose references once and persist their orientation cache."""
