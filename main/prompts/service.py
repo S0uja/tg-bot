@@ -46,15 +46,15 @@ HAIR_COLOR_PROMPTS = {
 }
 
 AGE_PROMPTS = {
-    "Молодая": "young adult woman, approximately 20s, youthful facial features, smooth firm skin, minimal fine lines, no pronounced wrinkles, fresh youthful appearance",
-    "Милф": "mature adult woman, approximately late 30s to mid 40s, mature facial features, natural skin texture, subtle forehead lines, fine crow's feet, light nasolabial folds, slightly less firm skin, clearly adult but not elderly",
-    "Зрелая": "older mature adult woman, approximately 55 to 65 years old, clearly mature facial features, pronounced forehead wrinkles, visible crow's feet, defined nasolabial folds, fine lines around the mouth, noticeable age-related skin texture, less firm skin, natural facial creases, realistic mature skin",
+    "Молодая": "young adult woman, approximately 20s, youthful facial features, smooth firm skin, minimal fine lines, no pronounced wrinkles, fresh youthful appearance, youthful body appearance, firm skin on arms and legs, firm natural body tissue, little visible skin laxity, youthful muscle tone",
+    "Милф": "mature adult woman, approximately late 30s to mid 40s, mature facial features, natural skin texture, subtle forehead lines, fine crow's feet, light nasolabial folds, slightly less firm skin, clearly adult but not elderly, mature body appearance, slightly softer skin on arms and legs, mild natural skin laxity, less youthful muscle tone",
+    "Зрелая": "older mature adult woman, approximately 55 to 65 years old, clearly mature facial features, pronounced forehead wrinkles, visible crow's feet, defined nasolabial folds, fine lines around the mouth, noticeable age-related skin texture, less firm skin, natural facial creases, realistic mature skin, visibly mature body appearance, softer skin on arms and legs, noticeable natural skin laxity, reduced muscle definition, age-appropriate body tissue",
 }
 
 AGE_NEGATIVE_PROMPTS = {
-    "Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, sagging skin, age spots, elderly facial features",
-    "Милф": "elderly facial features, deep severe wrinkles, heavy sagging skin, extreme age spots",
-    "Зрелая": "very young face, youthful facial features, baby face, perfectly smooth skin, no wrinkles, unlined skin",
+    "Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, sagging skin, age spots, elderly facial features, aged body appearance, pronounced skin laxity, loose skin, reduced muscle tone",
+    "Милф": "elderly facial features, deep severe wrinkles, heavy sagging skin, extreme age spots, strongly aged body appearance, pronounced loose skin, severe skin laxity",
+    "Зрелая": "very young face, youthful facial features, baby face, perfectly smooth skin, no wrinkles, unlined skin, youthful body appearance, very firm youthful skin, minimal skin laxity, high youthful muscle tone",
 }
 
 
