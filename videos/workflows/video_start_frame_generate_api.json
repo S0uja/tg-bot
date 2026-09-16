@@ -17,11 +17,11 @@
   },
   "5": {
     "inputs": {
-      "weight": 0.18,
+      "weight": 0.30,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0.0,
-      "end_at": 0.35,
+      "end_at": 0.65,
       "embeds_scaling": "V only",
       "model": ["1", 0],
       "ipadapter": ["3", 0],
@@ -110,7 +110,7 @@
     "class_type": "ControlNetApplyAdvanced"
   },
   "16": {
-    "inputs": {"width": 768, "height": 512, "batch_size": 1},
+    "inputs": {"width": 512, "height": 768, "batch_size": 1},
     "class_type": "EmptyLatentImage"
   },
   "17": {
