@@ -48,7 +48,7 @@ class ComfyUIImageGenerator:
         except Exception:
             return image_bytes
 
-    def _prepare_workflow(self, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None) -> dict[str, Any]:
+    def _prepare_workflow(self, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None, pose_openpose_strength: float | None = None) -> dict[str, Any]:
         selected_workflow = Path(workflow_path) if workflow_path else self.workflow_path
         if not selected_workflow.exists():
             raise ProviderError(f"Не найден workflow ComfyUI: {selected_workflow}")
@@ -154,12 +154,15 @@ class ComfyUIImageGenerator:
             openpose_apply = workflow.get("12")
             if isinstance(openpose_apply, dict) and openpose_apply.get("class_type") == "ControlNetApplyAdvanced":
                 oi = openpose_apply.setdefault("inputs", {})
-                oi["strength"] = 1.0
+                applied_openpose_strength = max(0.0, min(1.0, float(pose_openpose_strength))) if pose_openpose_strength is not None else 1.0
+                oi["strength"] = applied_openpose_strength
                 oi["start_percent"] = 0.0
                 oi["end_percent"] = 1.0
                 oi["strength_model"] = 1.0
                 oi["strength_clip"] = 1.0
-            logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=1.0 end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model)
+            else:
+                applied_openpose_strength = 1.0
+            logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=%s end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model, applied_openpose_strength)
 
             if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6 and pose_body_ipadapter_weight is None:
                 body_ipadapter = workflow.get("5")
@@ -340,8 +343,8 @@ class ComfyUIImageGenerator:
         except aiohttp.ClientError as exc:
             raise ProviderError(f"ComfyUI недоступен: {exc}") from exc
 
-    async def generate(self, *, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None) -> bytes:
-        workflow = self._prepare_workflow(character, prompt, reference_image, workflow_path=workflow_path, reactor_input_faces_index=reactor_input_faces_index, body_reference_image=body_reference_image, pose_image=pose_image, pose_visual_reference_image=pose_visual_reference_image, depth_image=depth_image, depth_strength=depth_strength, generation_seed=generation_seed, generation_size=generation_size, pose_body_ipadapter_weight=pose_body_ipadapter_weight, pose_body_ipadapter_end=pose_body_ipadapter_end)
+    async def generate(self, *, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None, pose_openpose_strength: float | None = None) -> bytes:
+        workflow = self._prepare_workflow(character, prompt, reference_image, workflow_path=workflow_path, reactor_input_faces_index=reactor_input_faces_index, body_reference_image=body_reference_image, pose_image=pose_image, pose_visual_reference_image=pose_visual_reference_image, depth_image=depth_image, depth_strength=depth_strength, generation_seed=generation_seed, generation_size=generation_size, pose_body_ipadapter_weight=pose_body_ipadapter_weight, pose_body_ipadapter_end=pose_body_ipadapter_end, pose_openpose_strength=pose_openpose_strength)
         client_id = str(uuid.uuid4())
         self._log_request(client_id, workflow)
         timeout = aiohttp.ClientTimeout(total=self.timeout + 30)
