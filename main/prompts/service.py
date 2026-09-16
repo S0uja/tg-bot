@@ -13,10 +13,10 @@ WEIGHT_PROMPTS = {
 }
 
 BUST_PROMPTS = {
-    1: "(nearly flat adult chest:1.4), (minimal breast tissue:1.4), (almost no visible breast projection:1.35), very small bust, very subtle natural chest contour",
-    2: "(small adult bust:1.3), (low breast volume:1.25), (small natural breasts:1.25), modest projection, clearly smaller than medium bust",
-    3: "(large adult bust:1.3), (high breast volume:1.3), (pronounced natural projection:1.25), full breasts, clearly larger than small and medium bust",
-    4: "(very large adult bust:1.45), (extremely high breast volume:1.45), (very pronounced projection:1.4), (very full breasts:1.4), exceptionally large bust, dramatically larger than size 3",
+    1: "(nearly flat adult chest:1.5), (minimal breast tissue:1.5), (almost no visible breast projection:1.45), (very small bust:1.4), very subtle natural chest contour, flat chest",
+    2: "(small adult bust:1.3), (low breast volume:1.3), (small natural breasts:1.3), modest projection, clearly smaller than medium bust",
+    3: "(large adult bust:1.35), (high breast volume:1.35), (pronounced natural projection:1.3), (full breasts:1.3), clearly larger than small and medium bust",
+    4: "(very large adult bust:1.5), (extremely high breast volume:1.5), (very pronounced projection:1.45), (very full breasts:1.45), (exceptionally large bust:1.4), dramatically larger than size 3",
 }
 
 HAIRSTYLE_PROMPTS = {
