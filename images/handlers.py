@@ -57,7 +57,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
             await callback.answer("Генерирую персонажа по reference-позе…")
             await edit_ui(callback.message,
                 "🖼 <b>Создаю персонажа по reference-позе…</b>\n\n"
-                "Поза берётся из папки <code>poses/reference</code>.\n"
+                "Поза берётся из папки <code>data/media/reference</code>.\n"
                 "Reference-изображение используется только как ControlNet-поза; пользователю отправляется только готовый персонаж.",
                 parse_mode="HTML",
             )
@@ -139,8 +139,6 @@ def register(router: Router, ctx: TelegramContext) -> None:
         character_id = int(character_id)
         generation_id = int(generation_id)
         await callback.answer("Повторно отрисовываю…")
-        # Immediately hide the currently displayed media while the replacement is generated.
-        # Telegram supports toggling spoiler through InputMedia without sending a new message.
         if callback.message.photo:
             current_file_id = callback.message.photo[-1].file_id
             await callback.message.edit_media(
