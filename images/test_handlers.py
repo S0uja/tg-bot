@@ -204,7 +204,10 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
                 generation_size=(512, 768),
                 generation_seed=test_seed,
             )
-            if face:
+            # ReActor deliberately stays disabled for the age sweep: it replaces the
+            # generated face with the original face and can erase the very age cues
+            # that this test is supposed to measure. Other tests keep the normal ReActor path.
+            if face and parameter != "age":
                 result = await image_service.image_provider.reface(image=result, face_reference=face)
             results.append((str(value), result))
         except Exception as exc:
