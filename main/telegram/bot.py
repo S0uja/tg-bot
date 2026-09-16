@@ -46,7 +46,9 @@ def build_router(
 
     if settings.feature_images_enabled:
         from images.handlers import register as register_images
+        from images.test_handlers import register as register_image_tests
         register_images(router, ctx)
+        register_image_tests(router, ctx)
 
     if settings.feature_videos_enabled:
         from videos.handlers import register as register_videos
