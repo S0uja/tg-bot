@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import os
 import io
-import os
 import re
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
 
-# One source of truth for pose categories and the words that activate them.
-# Everything can be overridden from .env without changing Python code.
 DEFAULT_POSE_ALIASES: dict[str, tuple[str, ...]] = {
     "all_fours": ("четвереньк", "all fours"),
     "kneeling": ("на колен", "на колени", "kneeling"),
@@ -35,18 +32,11 @@ def _split_aliases(value: str) -> tuple[str, ...]:
 
 
 def _load_pose_aliases() -> dict[str, tuple[str, ...]]:
-    """Load POSE_<category>=word1,word2,... from environment.
-
-    POSE_ORDER optionally controls priority when aliases overlap.
-    Missing variables fall back to the built-in defaults so an old .env keeps
-    working after an update.
-    """
     configured: dict[str, tuple[str, ...]] = {}
     for category, defaults in DEFAULT_POSE_ALIASES.items():
         raw = os.getenv(f"POSE_{category.upper()}")
         configured[category] = _split_aliases(raw) if raw is not None else defaults
 
-    # Allow completely new categories to be added only through .env as well.
     for key, value in os.environ.items():
         if not key.startswith("POSE_") or key in {"POSE_ORDER", "POSES_ROOT"}:
             continue
@@ -85,7 +75,6 @@ POSE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
 
 
 def resolve_pose(pose: str = "", scene: str = "") -> str:
-    """Resolve an explicit category first, otherwise detect it from text."""
     explicit = (pose or "").strip().lower()
     if explicit in ALLOWED_POSES:
         return explicit
@@ -97,32 +86,46 @@ def resolve_pose(pose: str = "", scene: str = "") -> str:
     return ""
 
 
+def media_root() -> Path:
+    """Return data/media, independent of the process current working directory."""
+    configured = os.getenv("MEDIA_ROOT", "").strip()
+    if configured:
+        root = Path(configured)
+        if not root.is_absolute():
+            root = Path(__file__).resolve().parents[2] / root
+        return root
+
+    return Path(__file__).resolve().parents[2] / "data" / "media"
+
+
 def poses_root() -> Path:
-    """Return the configured poses directory, independent of current cwd."""
+    """Return data/media/poses, the root for ordinary pose categories."""
     configured = os.getenv("POSES_ROOT", "").strip()
     if configured:
         root = Path(configured)
         if not root.is_absolute():
             root = Path(__file__).resolve().parents[2] / root
-        if root.is_dir():
-            return root
-
-    project_root = Path(__file__).resolve().parents[2]
-    root = project_root / "poses"
-    if root.is_dir():
         return root
 
-    fallback = Path(r"C:\AI\tg bot video stable\poses")
-    return fallback
+    return media_root() / "poses"
 
+
+def pose_category_root(category: str) -> Path:
+    """Resolve the physical folder for a semantic pose category.
+
+    reference -> data/media/reference
+    selfie    -> data/media/selfi
+    all other categories -> data/media/poses/<category>
+    """
+    category = (category or "").strip().lower()
+    if category == "reference":
+        return media_root() / "reference"
+    if category == "selfie":
+        return media_root() / "selfi"
+    return poses_root() / category
 
 
 def pose_target_size() -> tuple[int, int]:
-    """Return the fixed ControlNet pose canvas size.
-
-    The default matches the project image format. Both values can be
-    overridden from .env without changing the Python code.
-    """
     def _positive_int(name: str, default: int) -> int:
         try:
             value = int(os.getenv(name, str(default)).strip())
@@ -134,25 +137,17 @@ def pose_target_size() -> tuple[int, int]:
 
 
 def normalize_pose_image(image_bytes: bytes) -> bytes:
-    """Normalize any pose reference to the target canvas without distortion.
-
-    The original aspect ratio is preserved. The pose is contained inside a
-    fixed-size black canvas, so a 512x512 or 1024x1024 OpenPose map is not
-    stretched into 512x768. The result is always PNG bytes.
-    """
     if not image_bytes:
         return image_bytes
 
     target_width, target_height = pose_target_size()
     with Image.open(io.BytesIO(image_bytes)) as source:
         source = ImageOps.exif_transpose(source).convert("RGBA")
-
         contained = ImageOps.contain(
             source,
             (target_width, target_height),
             method=Image.Resampling.LANCZOS,
         )
-
         canvas = Image.new("RGBA", (target_width, target_height), (0, 0, 0, 255))
         left = (target_width - contained.width) // 2
         top = (target_height - contained.height) // 2
@@ -164,7 +159,6 @@ def normalize_pose_image(image_bytes: bytes) -> bytes:
 
 
 def pose_prompt() -> str:
-    """Build the compact pose section injected into the Qwen system prompt."""
     lines = [
         "POSE CONTROL:",
         "The application selects the actual pose reference image locally.",
