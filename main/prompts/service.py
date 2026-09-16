@@ -5,8 +5,8 @@ from poses.orientation import ORIENTATION_PROMPTS
 
 
 WEIGHT_PROMPTS = {
-    "Очень худая": "(very slim adult woman:1.3), (very low body fat:1.3), (very thin arms and legs:1.25), (very narrow waist:1.25), (narrow hips:1.2), (small overall body volume:1.2), delicate slim frame",
-    "Худая": "(slim adult woman:1.25), (low body fat:1.2), (slender arms and legs:1.2), (narrow waist:1.2), slim hips, lean body, small to moderate overall body volume",
+    "Очень худая": "(very slim adult woman:1.3), (extremely low body fat:1.3), (very thin arms and legs:1.3), (very narrow waist:1.25), (narrow hips:1.2), (small overall body volume:1.2), lean delicate frame, minimal soft tissue volume",
+    "Худая": "(slim adult woman:1.25), (low body fat:1.2), (slender arms and legs:1.2), (narrow waist:1.2), slim hips, lean body, small overall body volume",
     "Нормальная": "(average natural adult woman:1.2), (balanced natural body proportions:1.2), moderate body fat, medium waist, medium hips, medium thighs, average overall body volume",
     "Пышная": "(curvy plus-size adult woman:1.25), (noticeably fuller body:1.2), (higher body fat:1.2), (full hips and thighs:1.2), (soft wider waist and abdomen:1.15), rounded hips, fuller arms, clearly more body volume than an average body",
     "Толстая": "(heavy plus-size adult woman:1.35), (clearly very high body fat:1.35), (large overall body volume:1.3), (very broad waist:1.3), (large soft abdomen:1.3), (very wide hips:1.3), (very thick thighs:1.3), (full upper arms:1.2), (heavy soft legs:1.2), substantial soft body mass, clearly heavier than a curvy plus-size body",
@@ -18,7 +18,6 @@ BUST_PROMPTS = {
     3: "large adult bust, high breast volume, pronounced projection, full natural breasts",
     4: "very large adult bust, very high breast volume, strongly pronounced projection, very full natural breasts",
 }
-
 
 HAIRSTYLE_PROMPTS = {
     "Длинные прямые": "long straight hair, reaching below shoulders, sleek, smooth texture, blunt ends",
@@ -99,15 +98,12 @@ class PromptService:
         pose_lock_block = ""
         if context.pose.strip():
             pose_lock_block = (
-                "(STRICT OPENPOSE LOWER-BODY GEOMETRY:1.35), "
-                "follow the provided OpenPose body pose, "
-                "keep the pelvis/hips in the same position and at the same height, "
-                "keep both knees at the same relative positions and angles as the skeleton, "
-                "keep both feet and lower legs in the same positions and directions, "
-                "preserve the depth and width of the squat, "
-                "do not straighten or narrow the legs, do not swap left and right legs, "
-                "do not invent a different lower-body pose; "
-                "allow natural anatomical adjustment only where required to connect the joints"
+                "(OPENPOSE POSE GUIDE:1.1), "
+                "follow the provided OpenPose for the overall body posture and limb arrangement, "
+                "preserve the general pelvis, knee, lower-leg, and foot placement, "
+                "while adapting naturally to the character's body shape, proportions, and anatomy; "
+                "keep all limbs anatomically connected and naturally proportioned, "
+                "do not force the body into impossible joint angles or distort limb lengths"
             )
 
         orientation_block = ""
@@ -156,12 +152,7 @@ class PromptService:
 
 
     async def build_video_start_frame_prompt(self, context: ImagePromptContext) -> GeneratedPrompt:
-        """Build an image prompt for the exact opening frame of a video.
-
-        The opening image must contain the body parts and composition required by the
-        requested action, so the subsequent LTXV image-to-video stage has a useful
-        starting state instead of trying to invent missing limbs or framing.
-        """
+        """Build an image prompt for the exact opening frame of a video request."""
         frame_scene = (
             "Create the exact opening still frame for this video request. "
             "This image will be used as frame 0 of an image-to-video animation. "
@@ -181,10 +172,7 @@ class PromptService:
         frame_context = ImagePromptContext(
             character_description=context.character_description,
             scene=frame_scene,
-            pose=(
-                "initial starting pose matching the requested video action, "
-                "with all action-relevant body parts clearly visible"
-            ),
+            pose="initial starting pose matching the requested video action, with all action-relevant body parts clearly visible",
             clothing=context.clothing or "appropriate clothing matching the video request",
             weight_profile=context.weight_profile,
             bust_size=context.bust_size,
