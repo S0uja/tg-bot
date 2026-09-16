@@ -1,118 +1,74 @@
 {
   "1": {
-    "inputs": {
-      "ckpt_name": "cyberrealistic_final.safetensors"
-    },
+    "inputs": {"ckpt_name": "cyberrealistic_final.safetensors"},
     "class_type": "CheckpointLoaderSimple"
   },
   "2": {
-    "inputs": {
-      "clip_name": "model.safetensors"
-    },
+    "inputs": {"clip_name": "model.safetensors"},
     "class_type": "CLIPVisionLoader"
   },
   "3": {
-    "inputs": {
-      "ipadapter_file": "ip-adapter_sd15.bin"
-    },
+    "inputs": {"ipadapter_file": "ip-adapter_sd15.bin"},
     "class_type": "IPAdapterModelLoader"
   },
   "4": {
-    "inputs": {
-      "image": "telegram_face.png"
-    },
+    "inputs": {"image": "__BODY_REFERENCE_REQUIRED__"},
     "class_type": "LoadImage"
   },
   "5": {
     "inputs": {
-      "weight": 0.24,
+      "weight": 0.18,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0.0,
-      "end_at": 0.45,
+      "end_at": 0.35,
       "embeds_scaling": "V only",
-      "model": [
-        "1",
-        0
-      ],
-      "ipadapter": [
-        "3",
-        0
-      ],
-      "image": [
-        "4",
-        0
-      ],
-      "clip_vision": [
-        "2",
-        0
-      ]
+      "model": ["1", 0],
+      "ipadapter": ["3", 0],
+      "image": ["4", 0],
+      "clip_vision": ["2", 0]
     },
     "class_type": "IPAdapterAdvanced"
   },
   "6": {
     "inputs": {
-      "text": "photorealistic, high detail, exactly one adult woman per view, three consistent views of the same woman, complete head and face, head fully inside the frame, visible neck, realistic facial features, full body from head to feet, very slender body when the character profile specifies a thin body, narrow waist, slender arms and legs; use OpenPose only for pose and limb placement, use Depth only as a weak spatial guide, do not copy the depth silhouette as body shape",
-      "clip": [
-        "1",
-        1
-      ]
+      "text": "photorealistic, high detail, exactly one adult woman, one single person, complete head and face, head fully inside the frame, visible neck, natural facial features, full body from head to feet, slender natural body proportions, narrow waist, slender arms and legs, preserve the character identity and appearance, use OpenPose only for body pose and limb placement, use Depth only as a weak spatial guide, do not copy depth-map silhouette or clothing, do not create multiple views or multiple people",
+      "clip": ["1", 1]
     },
     "class_type": "CLIPTextEncode"
   },
   "7": {
     "inputs": {
-      "text": "headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, two people in one view, duplicate person, duplicate body, clone, twin, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body, bulky body, wide waist, heavy silhouette",
-      "clip": [
-        "1",
-        1
-      ]
+      "text": "two people, multiple people, three people, duplicate person, duplicate body, clone, twin, second person, background person, reflection person, multiple views, triptych, collage, split screen, three-panel image, headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body, bulky body, wide waist, heavy silhouette",
+      "clip": ["1", 1]
     },
     "class_type": "CLIPTextEncode"
   },
   "8": {
-    "inputs": {
-      "image": "telegram_face.png"
-    },
+    "inputs": {"image": "__FACE_REFERENCE_REQUIRED__"},
     "class_type": "LoadImage"
   },
   "9": {
     "inputs": {
-      "weight": 0.55,
+      "weight": 0.50,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0.0,
-      "end_at": 0.70,
+      "end_at": 0.65,
       "embeds_scaling": "V only",
-      "model": [
-        "5",
-        0
-      ],
-      "ipadapter": [
-        "3",
-        0
-      ],
-      "image": [
-        "8",
-        0
-      ],
-      "clip_vision": [
-        "2",
-        0
-      ]
+      "model": ["5", 0],
+      "ipadapter": ["3", 0],
+      "image": ["8", 0],
+      "clip_vision": ["2", 0]
     },
     "class_type": "IPAdapterAdvanced"
   },
   "10": {
-    "inputs": {
-      "image": "telegram_pose_control.png"
-    },
+    "inputs": {"image": "__POSE_REQUIRED__"},
     "class_type": "LoadImage"
   },
   "11": {
-    "inputs": {
-      "control_net_name": "control_v11p_sd15_openpose.pth"
-    },
+    "inputs": {"control_net_name": "control_v11p_sd15_openpose.pth"},
     "class_type": "ControlNetLoader"
   },
   "12": {
@@ -120,79 +76,41 @@
       "strength": 1.0,
       "start_percent": 0.0,
       "end_percent": 1.0,
-      "positive": [
-        "6",
-        0
-      ],
-      "negative": [
-        "7",
-        0
-      ],
-      "control_net": [
-        "11",
-        0
-      ],
-      "image": [
-        "10",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "control_net": ["11", 0],
+      "image": ["10", 0],
+      "vae": ["1", 2],
       "strength_model": 1.0,
       "strength_clip": 1.0
     },
     "class_type": "ControlNetApplyAdvanced"
   },
   "13": {
-    "inputs": {
-      "image": "telegram_pose_depth.png"
-    },
+    "inputs": {"image": "__DEPTH_OPTIONAL__"},
     "class_type": "LoadImage"
   },
   "14": {
-    "inputs": {
-      "control_net_name": "control_v11f1p_sd15_depth.pth"
-    },
+    "inputs": {"control_net_name": "control_v11f1p_sd15_depth.pth"},
     "class_type": "ControlNetLoader"
   },
   "15": {
     "inputs": {
-      "strength": 0.25,
+      "strength": 0.15,
       "start_percent": 0.0,
-      "end_percent": 1.0,
-      "positive": [
-        "12",
-        0
-      ],
-      "negative": [
-        "12",
-        1
-      ],
-      "control_net": [
-        "14",
-        0
-      ],
-      "image": [
-        "13",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ],
+      "end_percent": 0.75,
+      "positive": ["12", 0],
+      "negative": ["12", 1],
+      "control_net": ["14", 0],
+      "image": ["13", 0],
+      "vae": ["1", 2],
       "strength_model": 1.0,
       "strength_clip": 1.0
     },
     "class_type": "ControlNetApplyAdvanced"
   },
   "16": {
-    "inputs": {
-      "width": 768,
-      "height": 512,
-      "batch_size": 1
-    },
+    "inputs": {"width": 768, "height": 512, "batch_size": 1},
     "class_type": "EmptyLatentImage"
   },
   "17": {
@@ -203,46 +121,19 @@
       "sampler_name": "dpmpp_2m",
       "scheduler": "karras",
       "denoise": 1.0,
-      "model": [
-        "9",
-        0
-      ],
-      "positive": [
-        "15",
-        0
-      ],
-      "negative": [
-        "15",
-        1
-      ],
-      "latent_image": [
-        "16",
-        0
-      ]
+      "model": ["9", 0],
+      "positive": ["15", 0],
+      "negative": ["15", 1],
+      "latent_image": ["16", 0]
     },
     "class_type": "KSampler"
   },
   "18": {
-    "inputs": {
-      "samples": [
-        "17",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    },
+    "inputs": {"samples": ["17", 0], "vae": ["1", 2]},
     "class_type": "VAEDecode"
   },
   "19": {
-    "inputs": {
-      "filename_prefix": "TelegramBotReference",
-      "images": [
-        "18",
-        0
-      ]
-    },
+    "inputs": {"filename_prefix": "TelegramBotReference", "images": ["18", 0]},
     "class_type": "SaveImage"
   }
 }
