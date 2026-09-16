@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from PIL import Image, ImageDraw, ImageFont
 
 from main.core.context import TelegramContext
-from main.domain.errors import AppError
+from main.domain.errors import AppError, ProviderError
 from main.domain.models import Character, ImagePromptContext
 from main.prompts.service import (
     AGE_PROMPTS,
@@ -16,8 +16,8 @@ from main.prompts.service import (
     HAIR_COLOR_PROMPTS,
     HAIRSTYLE_PROMPTS,
     WEIGHT_PROMPTS,
-    profile_prompt,
 )
+from poses.config import pose_category_root
 
 
 TESTS = {
@@ -115,13 +115,11 @@ def _variant_character(character: Character, parameter: str, value) -> Character
 
 
 async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str) -> None:
-    """Run a parameter sweep through the exact same Reference pipeline.
+    """Test one profile parameter through the real Reference generation path.
 
-    Every variant uses pose="reference", so the normal ImageGenerationService
-    selects data/media/reference/reference_openpose.png + reference_depth.png,
-    uses the Reference canvas 512x768, Reference Depth strength 0.15, the same
-    prompt construction, Face IP-Adapter/ReActor path, and Reference-specific
-    Body IP-Adapter handling as a real Reference generation.
+    The variant Character is passed directly to the same ComfyUI provider workflow
+    used by Reference generation, rather than reloading the saved character and
+    accidentally losing the test variant.
     """
     character_service = ctx.character_service
     image_service = ctx.image_service
@@ -132,25 +130,81 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
 
     character = max(items, key=lambda item: item.id)
     _, values = TESTS[parameter]
+    total = len(values)
     results: list[tuple[str, bytes]] = []
     failures: list[str] = []
 
-    for value in values:
+    face = await character_service.read_face(character.face_file_id)
+    reference_dir = pose_category_root("reference")
+    openpose_path = reference_dir / "reference_openpose.png"
+    depth_path = reference_dir / "reference_depth.png"
+    if not openpose_path.is_file():
+        raise ProviderError(f"Не найден Reference OpenPose: {openpose_path}")
+    if not depth_path.is_file():
+        raise ProviderError(f"Не найден Reference Depth: {depth_path}")
+    if not image_service.video_start_frame_workflow_path:
+        raise ProviderError("Не настроен Reference/start-frame workflow.")
+
+    pose_image = openpose_path.read_bytes()
+    depth_image = depth_path.read_bytes()
+    progress = await message.answer(
+        f"🧪 <b>Тест: {TESTS[parameter][0]}</b>\n"
+        f"Генерация 0 из {total}",
+        parse_mode="HTML",
+    )
+
+    for index, value in enumerate(values, start=1):
+        try:
+            await progress.edit_text(
+                f"🧪 <b>Тест: {TESTS[parameter][0]}</b>\n"
+                f"Генерация {index} из {total}: <b>{value}</b>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
         variant = _variant_character(character, parameter, value)
         try:
-            _, result, _ = await image_service.generate(
-                user_id=message.from_user.id,
-                character_id=variant.id,
-                scene=(
-                    f"{SCENE}. Generate this character using the selected reference pose. "
-                    "Use the reference only for the body pose and composition. "
-                    "Preserve the character identity and apply the tested profile parameter."
-                ),
+            context = ImagePromptContext(
+                character_description=variant.description,
+                scene=SCENE,
                 pose="reference",
+                clothing="",
+                weight_profile=variant.weight_profile,
+                bust_size=variant.bust_size,
+                age_category=variant.age_category,
+                hairstyle=variant.hairstyle,
+                hair_color=variant.hair_color,
+                consistency_strength=variant.consistency_strength,
             )
+            prompt = await image_service.prompt_service.build_image_prompt(context)
+            effective_prompt = (
+                f"{prompt.positive}, exactly one adult woman, one single person only, "
+                "one body only, one head only, one face only, complete head and face, "
+                "head fully inside frame, full body, single view, no triptych, no collage, "
+                "do not reproduce multiple reference views"
+            )
+            result = await image_service.image_provider.generate(
+                character=variant,
+                prompt=effective_prompt,
+                reference_image=face,
+                body_reference_image=face,
+                workflow_path=image_service.video_start_frame_workflow_path,
+                pose_image=pose_image,
+                depth_image=depth_image,
+                depth_strength=0.15,
+                generation_size=(512, 768),
+            )
+            if face:
+                result = await image_service.image_provider.reface(image=result, face_reference=face)
             results.append((str(value), result))
         except Exception as exc:
             failures.append(f"{value}: {exc}")
+
+    try:
+        await progress.delete()
+    except Exception:
+        pass
 
     if not results:
         await message.answer("❌ Не удалось создать ни одного тестового изображения.")
@@ -158,7 +212,11 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
 
     sheet = _make_sheet(results)
     title, _ = TESTS[parameter]
-    caption = f"🧪 <b>Тест: {title}</b>\nПерсонаж: <b>{character.name}</b>\nВариантов: {len(results)}/{len(values)}"
+    caption = (
+        f"🧪 <b>Тест: {title}</b>\n"
+        f"Персонаж: <b>{character.name}</b>\n"
+        f"Генерация: {len(results)} из {total}"
+    )
     if failures:
         caption += f"\nОшибок: {len(failures)}"
     await message.answer_photo(
