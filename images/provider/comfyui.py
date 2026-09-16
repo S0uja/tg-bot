@@ -18,20 +18,7 @@ logger = logging.getLogger("comfyui.image")
 
 
 class ComfyUIImageGenerator:
-    def __init__(
-        self,
-        *,
-        base_url: str,
-        workflow_path: str,
-        input_path: str,
-        timeout: int,
-        poll_interval: float,
-        log_workflow: bool = True,
-        reactor_input_faces_index: str = "0,1,2,3,4,5,6,7",
-        reactor_workflow_path: str = "images/workflows/image_reface_api.json",
-        controlnet_openpose_model: str = "control_v11p_sd15_openpose.pth",
-        controlnet_depth_model: str = "control_v11f1p_sd15_depth.pth",
-    ) -> None:
+    def __init__(self, *, base_url: str, workflow_path: str, input_path: str, timeout: int, poll_interval: float, log_workflow: bool = True, reactor_input_faces_index: str = "0,1,2,3,4,5,6,7", reactor_workflow_path: str = "images/workflows/image_reface_api.json", controlnet_openpose_model: str = "control_v11p_sd15_openpose.pth", controlnet_depth_model: str = "control_v11f1p_sd15_depth.pth") -> None:
         self.base_url = base_url.rstrip("/")
         self.workflow_path = Path(workflow_path)
         self.input_path = Path(input_path)
@@ -46,7 +33,6 @@ class ComfyUIImageGenerator:
 
     @staticmethod
     def _make_body_lock_reference(image_bytes: bytes) -> bytes:
-        """Create a body-focused reference for IP-Adapter."""
         try:
             from io import BytesIO
             with Image.open(BytesIO(image_bytes)) as src:
@@ -62,7 +48,7 @@ class ComfyUIImageGenerator:
         except Exception:
             return image_bytes
 
-    def _prepare_workflow(self, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None) -> dict[str, Any]:
+    def _prepare_workflow(self, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None) -> dict[str, Any]:
         selected_workflow = Path(workflow_path) if workflow_path else self.workflow_path
         if not selected_workflow.exists():
             raise ProviderError(f"Не найден workflow ComfyUI: {selected_workflow}")
@@ -70,11 +56,7 @@ class ComfyUIImageGenerator:
 
         if generation_size is not None:
             width, height = generation_size
-            size_node = next(
-                (node for node in workflow.values()
-                 if isinstance(node, dict) and node.get("class_type") == "EmptyLatentImage"),
-                None,
-            )
+            size_node = next((node for node in workflow.values() if isinstance(node, dict) and node.get("class_type") == "EmptyLatentImage"), None)
             if isinstance(size_node, dict):
                 size_inputs = size_node.setdefault("inputs", {})
                 size_inputs["width"] = int(width)
@@ -120,19 +102,10 @@ class ComfyUIImageGenerator:
                 negative += ", slim body, skinny body, thin arms, narrow waist, flat abdomen, slender build"
             elif character.weight_profile == "Худая":
                 negative += ", obese body, very heavy body, extremely wide waist, thick thighs, very wide hips, large abdomen"
-            bust_negative = {
-                1: "large bust, large breasts, full breasts, very large breasts, prominent cleavage, heavy chest, breast projection, pronounced bust",
-                2: "large breasts, very large breasts, extremely large bust, exaggerated breast volume, prominent cleavage, heavy chest",
-                3: "flat chest, nearly flat chest, very small breasts, minimal breast volume, minimal projection",
-                4: "flat chest, very small breasts, small bust, minimal breast volume",
-            }.get(character.bust_size)
+            bust_negative = {1: "large bust, large breasts, full breasts, very large breasts, prominent cleavage, heavy chest, breast projection, pronounced bust", 2: "large breasts, very large breasts, extremely large bust, exaggerated breast volume, prominent cleavage, heavy chest", 3: "flat chest, nearly flat chest, very small breasts, minimal breast volume, minimal projection", 4: "flat chest, very small breasts, small bust, minimal breast volume"}.get(character.bust_size)
             if bust_negative:
                 negative += ", " + bust_negative
-            age_negative = {
-                "Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, sagging skin, age spots, elderly facial features",
-                "Милф": "elderly facial features, deep severe wrinkles, heavy sagging skin, extreme age spots",
-                "Зрелая": "very young face, youthful facial features, baby face, perfectly smooth skin, no wrinkles, unlined skin",
-            }.get(character.age_category)
+            age_negative = {"Молодая": "deep wrinkles, pronounced crow's feet, deep nasolabial folds, sagging skin, age spots, elderly facial features", "Милф": "elderly facial features, deep severe wrinkles, heavy sagging skin, extreme age spots", "Зрелая": "very young face, youthful facial features, baby face, perfectly smooth skin, no wrinkles, unlined skin"}.get(character.age_category)
             if age_negative:
                 negative += ", " + age_negative
             if body_reference_image:
@@ -140,9 +113,7 @@ class ComfyUIImageGenerator:
             nude_requested = any(token in prompt.lower() for token in ("full nude", "completely nude", "fully nude", "no clothing", "no underwear"))
             if nude_requested:
                 negative += ", clothing, clothes, outfit, dressed, wearing clothes, underwear, bra, panties, lingerie, bikini, swimsuit, shirt, top, blouse, dress, skirt, pants, jeans, shorts, jacket, coat, sweater, hoodie, shoes, footwear"
-            elif prompt and any(token in prompt.lower() for token in (
-                "wearing ", "dressed in ", "jacket", "jeans", "dress", "shirt", "blouse", "coat", "pants", "trousers", "shorts", "skirt", "sweater", "hoodie", "sneakers", "shoes", "boots", "heels", "bikini", "swimsuit", "lingerie", "underwear", "top", "t-shirt"
-            )):
+            elif prompt and any(token in prompt.lower() for token in ("wearing ", "dressed in ", "jacket", "jeans", "dress", "shirt", "blouse", "coat", "pants", "trousers", "shorts", "skirt", "sweater", "hoodie", "sneakers", "shoes", "boots", "heels", "bikini", "swimsuit", "lingerie", "underwear", "top", "t-shirt")):
                 negative += ", nude, naked, bare torso, exposed torso, exposed breasts, topless, missing clothing, incomplete clothing, transparent clothing"
             negative_node["inputs"]["text"] = negative
 
@@ -190,7 +161,7 @@ class ComfyUIImageGenerator:
                 oi["strength_clip"] = 1.0
             logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=1.0 end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model)
 
-            if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6:
+            if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6 and pose_body_ipadapter_weight is None:
                 body_ipadapter = workflow.get("5")
                 if isinstance(body_ipadapter, dict) and body_ipadapter.get("class_type") == "IPAdapterAdvanced":
                     bi = body_ipadapter.setdefault("inputs", {})
@@ -204,6 +175,16 @@ class ComfyUIImageGenerator:
                     self.logger.info("[BODY LOCK REFERENCE] Body IP-Adapter DISABLED; face IP-Adapter remains active.")
                 else:
                     raise ProviderError("В start-frame workflow отсутствует Face IPAdapterAdvanced node 9.")
+
+            if pose_body_ipadapter_weight is not None:
+                body_ipadapter = workflow.get("5")
+                if not isinstance(body_ipadapter, dict) or body_ipadapter.get("class_type") != "IPAdapterAdvanced":
+                    raise ProviderError("В start-frame workflow отсутствует Body IPAdapterAdvanced node 5.")
+                bi = body_ipadapter.setdefault("inputs", {})
+                bi["weight"] = max(0.0, min(1.0, float(pose_body_ipadapter_weight)))
+                bi["start_at"] = 0.0
+                bi["end_at"] = max(0.0, min(1.0, float(pose_body_ipadapter_end if pose_body_ipadapter_end is not None else 0.40)))
+                self.logger.info("[POSE TEST BODY IPADAPTER] weight=%s end=%s", bi["weight"], bi["end_at"])
 
             depth_filename = None
             depth_path = None
@@ -359,8 +340,8 @@ class ComfyUIImageGenerator:
         except aiohttp.ClientError as exc:
             raise ProviderError(f"ComfyUI недоступен: {exc}") from exc
 
-    async def generate(self, *, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None) -> bytes:
-        workflow = self._prepare_workflow(character, prompt, reference_image, workflow_path=workflow_path, reactor_input_faces_index=reactor_input_faces_index, body_reference_image=body_reference_image, pose_image=pose_image, pose_visual_reference_image=pose_visual_reference_image, depth_image=depth_image, depth_strength=depth_strength, generation_seed=generation_seed, generation_size=generation_size)
+    async def generate(self, *, character: Character, prompt: str, reference_image: bytes | None, workflow_path: str | None = None, reactor_input_faces_index: str | None = None, body_reference_image: bytes | None = None, pose_image: bytes | None = None, pose_visual_reference_image: bytes | None = None, depth_image: bytes | None = None, depth_strength: float | None = None, generation_seed: int | None = None, generation_size: tuple[int, int] | None = None, pose_body_ipadapter_weight: float | None = None, pose_body_ipadapter_end: float | None = None) -> bytes:
+        workflow = self._prepare_workflow(character, prompt, reference_image, workflow_path=workflow_path, reactor_input_faces_index=reactor_input_faces_index, body_reference_image=body_reference_image, pose_image=pose_image, pose_visual_reference_image=pose_visual_reference_image, depth_image=depth_image, depth_strength=depth_strength, generation_seed=generation_seed, generation_size=generation_size, pose_body_ipadapter_weight=pose_body_ipadapter_weight, pose_body_ipadapter_end=pose_body_ipadapter_end)
         client_id = str(uuid.uuid4())
         self._log_request(client_id, workflow)
         timeout = aiohttp.ClientTimeout(total=self.timeout + 30)
