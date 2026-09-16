@@ -5,11 +5,11 @@ from poses.orientation import ORIENTATION_PROMPTS
 
 
 WEIGHT_PROMPTS = {
-    "Очень худая": "very slim adult body, very low body fat, slim arms and legs, narrow waist, slim hips and thighs",
-    "Худая": "slim adult body, low body fat, slender arms and legs, narrow waist",
-    "Нормальная": "average natural adult body, balanced proportions, moderate body fat",
-    "Пышная": "curvy plus-size adult body, higher body fat, fuller hips and thighs, softer waist and abdomen, fuller overall body volume",
-    "Толстая": "heavy plus-size adult body, high body fat, broad waist, full abdomen, wide hips, heavy thighs, substantial body mass",
+    "Очень худая": "(very slim adult woman:1.3), (very low body fat:1.3), (very thin arms and legs:1.25), (very narrow waist:1.25), (narrow hips:1.2), (small overall body volume:1.2), delicate slim frame",
+    "Худая": "(slim adult woman:1.25), (low body fat:1.2), (slender arms and legs:1.2), (narrow waist:1.2), slim hips, lean body, small to moderate overall body volume",
+    "Нормальная": "(average natural adult woman:1.2), (balanced natural body proportions:1.2), moderate body fat, medium waist, medium hips, medium thighs, average overall body volume",
+    "Пышная": "(curvy plus-size adult woman:1.25), (noticeably fuller body:1.2), (higher body fat:1.2), (full hips and thighs:1.2), (soft wider waist and abdomen:1.15), rounded hips, fuller arms, clearly more body volume than an average body",
+    "Толстая": "(heavy plus-size adult woman:1.35), (clearly very high body fat:1.35), (large overall body volume:1.3), (very broad waist:1.3), (large soft abdomen:1.3), (very wide hips:1.3), (very thick thighs:1.3), (full upper arms:1.2), (heavy soft legs:1.2), substantial soft body mass, clearly heavier than a curvy plus-size body",
 }
 
 BUST_PROMPTS = {
@@ -87,9 +87,6 @@ class PromptService:
 
         parts = [enhanced]
 
-        # Clothing is a scene attribute, not a character-reference attribute.
-        # Give it a dedicated high-priority block so the Body Reference cannot
-        # silently replace the requested outfit.
         if context.clothing.strip():
             clothing = " ".join(context.clothing.strip().split()).strip(" ,.")
             if not clothing.lower().startswith(("wearing ", "dressed in ", "in ")):
@@ -113,7 +110,6 @@ class PromptService:
                 "allow natural anatomical adjustment only where required to connect the joints"
             )
 
-
         orientation_block = ""
         if getattr(context, 'pose_orientation', ''):
             orientation = str(context.pose_orientation).strip().lower()
@@ -126,9 +122,6 @@ class PromptService:
         if profile:
             parts.append(profile)
 
-        # Pose and orientation are deterministic structural constraints. Keep them
-        # last so they survive prompt shortening and receive the highest textual
-        # priority after the scene/profile description.
         if pose_lock_block:
             parts.append(pose_lock_block)
         if orientation_block:
@@ -137,8 +130,6 @@ class PromptService:
         positive = ", ".join(p for p in parts if p)
         max_chars = 1500
         if len(positive) > max_chars:
-            # Only the LLM-generated scene section is trimmed. Every
-            # deterministic constraint, including orientation, is reserved.
             tail = ", ".join(
                 p for p in (
                     context.pose.strip(),
@@ -162,7 +153,6 @@ class PromptService:
             )
 
         return GeneratedPrompt(positive=positive)
-
 
 
     async def build_video_start_frame_prompt(self, context: ImagePromptContext) -> GeneratedPrompt:
