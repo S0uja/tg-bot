@@ -70,7 +70,7 @@ class ComfyUIImageGenerator:
 
         # Allow individual image-generation entry points to override the canvas
         # without changing the shared workflow on disk. Reference generation uses
-        # landscape 768x512; all other callers keep their workflow dimensions.
+        # portrait 512x768; all other callers keep their workflow dimensions.
         if generation_size is not None:
             width, height = generation_size
             size_node = next(
@@ -187,8 +187,22 @@ class ComfyUIImageGenerator:
                 oi["strength_model"] = 1.0
                 oi["strength_clip"] = 1.0
             logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=1.0 end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model)
+
+            # Reference uses a clean single-pose OpenPose plus a synchronized depth map.
+            # Give the body IP-Adapter enough influence to preserve the character's
+            # body profile while leaving OpenPose in charge of exact joint geometry.
+            if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6:
+                body_ipadapter = workflow.get("5")
+                if isinstance(body_ipadapter, dict) and body_ipadapter.get("class_type") == "IPAdapterAdvanced":
+                    bi = body_ipadapter.setdefault("inputs", {})
+                    bi["weight"] = 0.30
+                    bi["start_at"] = 0.0
+                    bi["end_at"] = 0.65
+                    self.logger.info("[BODY LOCK REFERENCE] IP-Adapter weight=0.30 end=0.65")
+
             depth_filename = None
             depth_path = None
+            applied_depth_strength = None
             if depth_image is None:
                 sampler = next((node for node in workflow.values() if isinstance(node, dict) and node.get("class_type") == "KSampler"), None)
                 if isinstance(sampler, dict):
@@ -218,7 +232,8 @@ class ComfyUIImageGenerator:
                 di["control_net"] = ["14", 0]
                 di["image"] = ["13", 0]
                 di["vae"] = ["1", 2]
-                di["strength"] = max(0.0, min(1.0, float(depth_strength))) if depth_strength is not None else 0.65
+                applied_depth_strength = max(0.0, min(1.0, float(depth_strength))) if depth_strength is not None else 0.65
+                di["strength"] = applied_depth_strength
                 di["start_percent"] = 0.0
                 di["end_percent"] = 1.0
                 di["strength_model"] = 1.0
@@ -232,7 +247,7 @@ class ComfyUIImageGenerator:
                 sampler = next((node for node in workflow.values() if isinstance(node, dict) and node.get("class_type") == "KSampler"), None)
                 if isinstance(sampler, dict):
                     sampler.setdefault("inputs", {})["seed"] = int(generation_seed)
-            logger.info("[POSE DEPTH V8] Depth=%s exists=%s model=%s strength=0.65 end=1.0", depth_filename or "none", bool(depth_path and depth_path.is_file()), self.controlnet_depth_model)
+            logger.info("[POSE DEPTH V8] Depth=%s exists=%s model=%s strength=%s end=1.0", depth_filename or "none", bool(depth_path and depth_path.is_file()), self.controlnet_depth_model, applied_depth_strength if applied_depth_strength is not None else "none")
 
         for node in workflow.values():
             if isinstance(node, dict) and node.get("class_type") == "KSampler":
