@@ -19,7 +19,7 @@
   },
   "4": {
     "inputs": {
-      "image": "telegram_body_lock.png"
+      "image": "telegram_face.png"
     },
     "class_type": "LoadImage"
   },
