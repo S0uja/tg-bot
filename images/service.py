@@ -25,9 +25,6 @@ def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes |
     category_dir = pose_category_root(category)
     exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
-    # Reference has a fixed, explicit pair. Do not derive the depth filename
-    # from the OpenPose filename: reference_openpose.png is paired with
-    # reference_depth.png by design.
     if category == "reference":
         openpose_path = category_dir / "reference_openpose.png"
         depth_path = category_dir / "reference_depth.png"
@@ -132,6 +129,15 @@ class ImageGenerationService:
                     body_reference = await self.storage.read(character.body_reference_file_id)
                 except (OSError, FileNotFoundError):
                     body_reference = None
+
+            # The unified pose workflow has a body IP-Adapter input. Reference
+            # generation must remain valid even when the Character has no separate
+            # Body Reference: use the Character face/reference image as the
+            # temporary body input. The provider converts it into a body-focused
+            # lock image, so node 4 is never left pointing at a nonexistent file.
+            if pose_category == "reference" and body_reference is None and face_bytes is not None:
+                body_reference = face_bytes
+
             use_pose_workflow = bool(pose_image is not None and self.video_start_frame_workflow_path)
             result = await self.image_provider.generate(character=character, prompt=prompt.positive, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=depth_strength if use_pose_workflow else None, generation_seed=generation_seed)
             if face_bytes and pose_face_visible:
