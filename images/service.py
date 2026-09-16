@@ -130,12 +130,12 @@ class ImageGenerationService:
                 except (OSError, FileNotFoundError):
                     body_reference = None
 
-            # The unified pose workflow has a body IP-Adapter input. Reference
-            # generation must remain valid even when the Character has no separate
-            # Body Reference: use the Character face/reference image as the
-            # temporary body input. The provider converts it into a body-focused
-            # lock image, so node 4 is never left pointing at a nonexistent file.
-            if pose_category == "reference" and body_reference is None and face_bytes is not None:
+            # The unified pose workflow contains an optional body IP-Adapter
+            # branch. If no separate Body Reference exists, use the Character
+            # reference as a temporary body input. The provider converts it to a
+            # body-focused lock image, so the workflow never contains an invalid
+            # placeholder LoadImage such as telegram_body_lock.png.
+            if pose_image is not None and body_reference is None and face_bytes is not None:
                 body_reference = face_bytes
 
             use_pose_workflow = bool(pose_image is not None and self.video_start_frame_workflow_path)
