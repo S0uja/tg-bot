@@ -188,9 +188,6 @@ class ComfyUIImageGenerator:
                 oi["strength_clip"] = 1.0
             logger.info("[POSE CONTROL V8] OpenPose=%s exists=%s model=%s strength=1.0 end=1.0", pose_filename, pose_path.is_file(), self.controlnet_openpose_model)
 
-            # Reference uses a clean single-pose OpenPose plus a synchronized depth map.
-            # Give the body IP-Adapter enough influence to preserve the character's
-            # body profile while leaving OpenPose in charge of exact joint geometry.
             if body_reference_image and depth_strength is not None and abs(float(depth_strength) - 0.15) < 1e-6:
                 body_ipadapter = workflow.get("5")
                 if isinstance(body_ipadapter, dict) and body_ipadapter.get("class_type") == "IPAdapterAdvanced":
