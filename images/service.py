@@ -28,7 +28,7 @@ def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes |
         depth_path = category_dir / "reference_depth.png"
         if openpose_path.is_file():
             depth_bytes = depth_path.read_bytes() if depth_path.is_file() else None
-            return (category, openpose_path, normalize_pose_image(openpose_path.read_bytes(), target_size=(768, 512)), depth_path if depth_path.is_file() else None, depth_bytes)
+            return (category, openpose_path, normalize_pose_image(openpose_path.read_bytes(), target_size=(512, 768)), depth_path if depth_path.is_file() else None, depth_bytes)
     candidates = [f for f in category_dir.rglob("*") if f.is_file() and f.suffix.lower() in exts] if category_dir.is_dir() else []
     if not candidates:
         return category, None, None, None, None
@@ -81,7 +81,7 @@ class ImageGenerationService:
                     raise ProviderError("Для pose reference не указан оригинал для анализа ориентации.")
                 pose_orientation = orientation_info["orientation"]
                 pose_face_visible = orientation_info["face_visible"]
-                pose_image = normalize_pose_image(pose_reference_image, target_size=(768, 512) if pose_category == "reference" else None)
+                pose_image = normalize_pose_image(pose_reference_image, target_size=(512, 768) if pose_category == "reference" else None)
                 if explicit_depth_image is not None:
                     depth_reference_image = explicit_depth_image
                     depth_reference_path = explicit_depth_path
@@ -130,7 +130,7 @@ class ImageGenerationService:
             prompt_logger.info("[POSITIVE]\n%s", effective_prompt or "<empty>")
             prompt_logger.info("[PROFILE] character_id=%s weight=%s bust=%s age=%s hairstyle=%s hair_color=%s consistency=%s pose=%s clothing=%s", character.id, character.weight_profile, character.bust_size, character.age_category, character.hairstyle, character.hair_color, character.consistency_strength, pose, clothing)
             prompt_logger.info("========== END IMAGE GENERATION PROMPT ==========")
-            result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed)
+            result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed, generation_size=(512, 768) if use_pose_workflow and pose_category == "reference" else None)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
             result_path = await self.storage.save(result, f"generation_{generation_id}.png")
