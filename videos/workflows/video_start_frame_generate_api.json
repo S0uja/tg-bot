@@ -32,14 +32,14 @@
   },
   "6": {
     "inputs": {
-      "text": "photorealistic, high detail, exactly one adult woman, one single person, complete head and face, head fully inside the frame, visible neck, natural facial features, full body from head to feet, slender natural body proportions, narrow waist, slender arms and legs, preserve the character identity and appearance, use OpenPose only for body pose and limb placement, use Depth only as a weak spatial guide, do not copy depth-map silhouette or clothing, do not create multiple views or multiple people",
+      "text": "photorealistic, high detail, exactly one adult woman, one single person, complete head and face, head fully inside the frame, visible neck, natural facial features, full body from head to feet, preserve the character identity and appearance, use OpenPose only for body pose and limb placement, use Depth only as a weak spatial guide, do not copy depth-map silhouette or clothing, do not create multiple views or multiple people",
       "clip": ["1", 1]
     },
     "class_type": "CLIPTextEncode"
   },
   "7": {
     "inputs": {
-      "text": "two people, multiple people, three people, duplicate person, duplicate body, clone, twin, second person, background person, reflection person, multiple views, triptych, collage, split screen, three-panel image, headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body, bulky body, wide waist, heavy silhouette",
+      "text": "two people, multiple people, three people, duplicate person, duplicate body, clone, twin, second person, background person, reflection person, multiple views, triptych, collage, split screen, three-panel image, headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body",
       "clip": ["1", 1]
     },
     "class_type": "CLIPTextEncode"
