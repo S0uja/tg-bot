@@ -173,30 +173,13 @@ async def _run_pose_folder_test(message: types.Message, ctx: TelegramContext, fo
             context = ImagePromptContext(character_description=character.description, scene=SCENE, pose=folder_name, clothing="", weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength)
             prompt = await image_service.prompt_service.build_image_prompt(context)
             effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, one face only, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
-            result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.15, generation_size=(512, 768), generation_seed=(seed_base + index) % (2**32))
+            result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.0, generation_size=(512, 768), generation_seed=(seed_base + index) % (2**32))
             if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
-
-            # Telegram media groups are displayed as one album/message group.
-            # The delete button is sent immediately after the album because
-            # Telegram's sendMediaGroup API does not support inline keyboards.
             await message.answer_media_group([
-                types.InputMediaPhoto(
-                    media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name),
-                    caption=f"🗺 Depth: {stem}",
-                ),
-                types.InputMediaPhoto(
-                    media=types.BufferedInputFile(result, filename=f"{stem}_result.png"),
-                    caption=f"🧪 Результат: {stem}",
-                ),
+                types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"),
+                types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_result.png"), caption=f"🧪 Результат: {stem}"),
             ])
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text="🗑 Удалить позу",
-                        callback_data=f"testpose_delete:{folder_name}:{stem}",
-                    )
-                ]]
-            )
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить позу", callback_data=f"testpose_delete:{folder_name}:{stem}")]])
             await message.answer("Управление позой:", reply_markup=keyboard)
         except Exception as exc:
             await message.answer(f"❌ <code>{stem}</code>: {exc}", parse_mode="HTML")
