@@ -17,7 +17,7 @@ from poses.orientation import PoseOrientationCache
 
 
 def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes | None, Path | None, bytes | None]:
-    """Select a random pose image from the correct data/media folder."""
+    """Select a random pose image from the correct physical media folder."""
     category = resolve_pose(pose, scene)
     if not category:
         return "", None, None, None, None
@@ -32,8 +32,6 @@ def _select_pose_image(pose: str, scene: str) -> tuple[str, Path | None, bytes |
     if not candidates:
         return category, None, None, None, None
 
-    # Prefer original images over generated control maps. If an original has
-    # matching OpenPose/Depth companions, use those as the actual controls.
     originals = [
         f for f in candidates
         if not f.stem.lower().endswith("_noise_final_openpose")
@@ -77,7 +75,9 @@ class ImageGenerationService:
         self.reference_sheet_workflow_path = reference_sheet_workflow_path
         self.body_reference_workflow_path = body_reference_workflow_path
         self.video_start_frame_workflow_path = video_start_frame_workflow_path
-        self.pose_orientation_cache = PoseOrientationCache(poses_root(), prompt_service.enhancer)
+        # Orientation cache is rooted at project/data/media so reference and
+        # selfie files are valid cache inputs as well as ordinary poses.
+        self.pose_orientation_cache = PoseOrientationCache(media_root(), prompt_service.enhancer)
 
     async def generate(
         self,
@@ -115,6 +115,9 @@ class ImageGenerationService:
 
             pose_orientation = ""
             pose_face_visible = True
+            pose_category = resolve_pose(pose, scene) if pose else ""
+            selected_pose_path = None
+            pose_image = None
 
             explicit_depth_image = depth_reference_image
             explicit_depth_path = depth_reference_path
@@ -154,7 +157,10 @@ class ImageGenerationService:
                         depth_reference_path = candidate_depth
                         depth_reference_image = candidate_depth.read_bytes()
             else:
-                if settings.feature_poses_enabled:
+                # Reference and selfie are always routed through their dedicated
+                # folders. The feature flag only disables ordinary pose discovery.
+                dedicated_pose = pose_category in {"reference", "selfie"}
+                if settings.feature_poses_enabled or dedicated_pose:
                     pose_category, selected_pose_path, pose_image, depth_reference_path, depth_reference_image = _select_pose_image(pose, scene)
                     if selected_pose_path is not None:
                         orientation_info = await self.pose_orientation_cache.ensure(selected_pose_path)
@@ -166,12 +172,18 @@ class ImageGenerationService:
 
             if pose or pose_reference_image is not None:
                 if pose_image is None:
+                    if pose_category == "reference":
+                        expected_dir = pose_category_root("reference")
+                    elif pose_category == "selfie":
+                        expected_dir = pose_category_root("selfie")
+                    else:
+                        expected_dir = pose_category_root(pose_category or "...")
                     raise ProviderError(
-                        f"Не найдена картинка позы '{pose}' в data/media/{'reference' if pose_category == 'reference' else 'selfi' if pose_category == 'selfie' else 'poses/' + (pose_category or '...')}."
+                        f"Не найдена картинка позы '{pose}' в {expected_dir}."
                     )
                 logging.getLogger("image_generation").info(
-                    "[IMAGE POSE] selected category=%s orientation=%s face_visible=%s bytes=%d",
-                    pose_category, pose_orientation, pose_face_visible, len(pose_image)
+                    "[IMAGE POSE] selected category=%s path=%s orientation=%s face_visible=%s bytes=%d",
+                    pose_category, selected_pose_path, pose_orientation, pose_face_visible, len(pose_image)
                 )
 
             prompt = await self.prompt_service.build_image_prompt(
@@ -248,3 +260,4 @@ class ImageGenerationService:
 
     async def analyze_all_pose_orientations(self) -> tuple[int, int]:
         """Analyze all pose references once and persist their orientation cache."""
+        return await self.pose_orientation_cache.ensure_all()
