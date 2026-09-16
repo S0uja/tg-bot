@@ -5,8 +5,8 @@ from poses.orientation import ORIENTATION_PROMPTS
 
 
 WEIGHT_PROMPTS = {
-    "Очень худая": "(very slim adult woman:1.3), (extremely low body fat:1.3), (very thin arms and legs:1.3), (very narrow waist:1.25), (narrow hips:1.2), (small overall body volume:1.2), lean delicate frame, minimal soft tissue volume",
-    "Худая": "(slim adult woman:1.25), (low body fat:1.2), (slender arms and legs:1.2), (narrow waist:1.2), slim hips, lean body, small overall body volume",
+    "Очень худая": "(extremely thin adult woman:1.4), (very low body fat:1.4), (very thin arms and legs:1.35), (very narrow waist:1.3), (narrow hips:1.25), (very small overall body volume:1.3), (visible collarbones and subtle rib definition:1.15), delicate narrow frame, minimal soft tissue volume",
+    "Худая": "(slim adult woman:1.2), (low body fat:1.15), (slender arms and legs:1.15), (narrow waist:1.15), slim hips, lean body, small overall body volume",
     "Нормальная": "(average natural adult woman:1.2), (balanced natural body proportions:1.2), moderate body fat, medium waist, medium hips, medium thighs, average overall body volume",
     "Пышная": "(curvy plus-size adult woman:1.25), (noticeably fuller body:1.2), (higher body fat:1.2), (full hips and thighs:1.2), (soft wider waist and abdomen:1.15), rounded hips, fuller arms, clearly more body volume than an average body",
     "Толстая": "(heavy plus-size adult woman:1.35), (clearly very high body fat:1.35), (large overall body volume:1.3), (very broad waist:1.3), (large soft abdomen:1.3), (very wide hips:1.3), (very thick thighs:1.3), (full upper arms:1.2), (heavy soft legs:1.2), substantial soft body mass, clearly heavier than a curvy plus-size body",
