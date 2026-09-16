@@ -139,16 +139,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
         character_id = int(character_id)
         generation_id = int(generation_id)
         await callback.answer("Повторно отрисовываю…")
-        if callback.message.photo:
-            current_file_id = callback.message.photo[-1].file_id
-            await callback.message.edit_media(
-                media=types.InputMediaPhoto(media=current_file_id, has_spoiler=True),
-                reply_markup=image_actions(character_id, generation_id),
-            )
         try:
-            # regenerate() restores the character from the saved generation;
-            # character_id is already stored in that generation and must not be
-            # passed as a separate positional argument.
             character, result, new_generation_id = await image_service.regenerate(
                 callback.from_user.id, generation_id
             )
