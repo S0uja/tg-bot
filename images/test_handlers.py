@@ -31,9 +31,9 @@ TESTS = {
 
 
 SCENE = (
-    "photorealistic full-body portrait of one adult woman standing naturally, "
-    "head to toe visible, simple neutral studio background, natural soft lighting, "
-    "fitted neutral casual clothing, front three-quarter camera view"
+    "photorealistic full-body portrait of one adult woman, full nude, completely nude, "
+    "no clothing, no underwear, head to toe visible, simple neutral studio background, "
+    "natural soft lighting, front three-quarter camera view"
 )
 
 
