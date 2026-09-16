@@ -154,6 +154,23 @@ class ImageGenerationService:
                 raise
             raise ProviderError(str(exc)) from exc
 
+    async def regenerate(self, user_id: int, generation_id: int) -> tuple[Character, bytes, int]:
+        """Regenerate an existing image using the original generation settings."""
+        generation = await self.generations.get(user_id, generation_id)
+        if generation is None:
+            raise NotFoundError("Генерация не найдена.")
+        if generation.kind != GenerationKind.IMAGE:
+            raise ProviderError("Повторная генерация доступна только для изображений.")
+        if generation.character_id is None:
+            raise ProviderError("У генерации не указан персонаж.")
+        return await self.generate(
+            user_id=user_id,
+            character_id=generation.character_id,
+            scene=generation.prompt or "",
+            pose=generation.pose or "",
+            clothing=generation.clothing or "",
+        )
+
     async def analyze_all_pose_orientations(self) -> tuple[int, int]:
         """Analyze all pose references once and persist their orientation cache."""
         return await self.pose_orientation_cache.ensure_all()
