@@ -1,0 +1,170 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "cyberrealistic_final.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "2": {
+    "inputs": {
+      "text": "photorealistic, high detail, exactly one adult woman, single person, solo, follow the supplied OpenPose control image precisely; preserve body orientation and limb positions; natural full-body composition; no second person, duplicate, clone, twin, background person, reflection-person, collage.",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "3": {
+    "inputs": {
+      "text": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, watermark, two women, two people, multiple people, group, crowd, duplicate person, clone, twin, second person, background person, reflection person, split subject, collage, double exposure",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "4": {
+    "inputs": {
+      "width": 512,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage"
+  },
+  "5": {
+    "inputs": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "15",
+        0
+      ],
+      "negative": [
+        "15",
+        1
+      ],
+      "latent_image": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "6": {
+    "inputs": {
+      "samples": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "TelegramBotVideoStart",
+      "images": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
+  "10": {
+    "inputs": {
+      "image": "telegram_pose_control.png"
+    },
+    "class_type": "LoadImage"
+  },
+  "11": {
+    "inputs": {
+      "control_net_name": "control_v11p_sd15_openpose.pth"
+    },
+    "class_type": "ControlNetLoader"
+  },
+  "12": {
+    "inputs": {
+      "strength": 1.0,
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
+      "control_net": [
+        "11",
+        0
+      ],
+      "image": [
+        "10",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "strength_model": 1.0,
+      "strength_clip": 1.0
+    },
+    "class_type": "ControlNetApplyAdvanced"
+  },
+  "13": {
+    "inputs": {
+      "image": "telegram_pose_depth.png"
+    },
+    "class_type": "LoadImage"
+  },
+  "14": {
+    "inputs": {
+      "control_net_name": "control_v11f1p_sd15_depth.pth"
+    },
+    "class_type": "ControlNetLoader"
+  },
+  "15": {
+    "inputs": {
+      "strength": 0.65,
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "positive": [
+        "12",
+        0
+      ],
+      "negative": [
+        "12",
+        1
+      ],
+      "control_net": [
+        "14",
+        0
+      ],
+      "image": [
+        "13",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "strength_model": 1.0,
+      "strength_clip": 1.0
+    },
+    "class_type": "ControlNetApplyAdvanced"
+  }
+}

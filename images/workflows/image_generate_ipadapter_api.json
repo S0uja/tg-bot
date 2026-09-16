@@ -1,0 +1,164 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "cyberrealistic_final.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Загрузить сheckpoint"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "model.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "Загрузить видение CLIP"
+    }
+  },
+  "3": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter_sd15.bin"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "IPAdapter Model Loader"
+    }
+  },
+  "4": {
+    "inputs": {
+      "image": "TelegramReActor_00029_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Загрузить изображение"
+    }
+  },
+  "5": {
+    "inputs": {
+      "weight": 0.7,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0,
+      "end_at": 1,
+      "embeds_scaling": "V only",
+      "model": [
+        "1",
+        0
+      ],
+      "ipadapter": [
+        "3",
+        0
+      ],
+      "image": [
+        "4",
+        0
+      ],
+      "clip_vision": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "IPAdapterAdvanced",
+    "_meta": {
+      "title": "IPAdapter Advanced"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "photorealistic, high detail, exactly one adult woman, single person, solo subject, one woman only, one body only, centered single subject, no other people",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Кодирование текста CLIP (Запрос)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "two people, two women, multiple people, group, duplicate person, duplicated body, duplicate face, second person, extra person, clone, twin, mirrored person, extra body, extra head, extra face, extra limbs, double torso, duplicate subject, crowd, background person, person in background, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Кодирование текста CLIP (Негативный запрос)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "width": 512,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Пустое латентное изображение"
+    }
+  },
+  "9": {
+    "inputs": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "10": {
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Декодировать VAE"
+    }
+  },
+  "11": {
+    "inputs": {
+      "filename_prefix": "TelegramBot_IPAdapter",
+      "images": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Сохранить изображение"
+    }
+  }
+}

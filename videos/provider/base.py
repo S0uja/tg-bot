@@ -1,0 +1,6 @@
+from typing import Protocol
+from main.domain.models import Character
+
+class VideoGenerator(Protocol):
+    async def generate(self, *, character: Character, prompt: str, reference_image: bytes | None, identity_image: bytes | None = None, duration_frames: int = 97) -> bytes: ...
+    async def reface(self, *, video: bytes, face_reference: bytes) -> bytes: ...

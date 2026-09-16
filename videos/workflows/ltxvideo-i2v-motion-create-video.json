@@ -1,0 +1,337 @@
+{
+  "6": {
+    "inputs": {
+      "text": "Continuous intentional full-body motion, clear visible action throughout the shot, natural acceleration and deceleration, realistic weight and momentum, coherent body mechanics, continuous movement from beginning to end, no frozen pose, no static hold, no sudden pose changes. A red fox moving gracefully, its russet coat vibrant against the white landscape, leaving perfect star-shaped prints behind as steam rises from its breath in the crisp winter air. The scene is wrapped in snow-muffled silence, broken only by the gentle murmur of water still flowing beneath the ice.",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Positive Prompt — Motion Focus",
+      "notes": "Motion emphasis added before the original prompt; scene description preserved."
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "low quality, worst quality, deformed, distorted, disfigured, bad anatomy, bad hands, fused fingers, extra limbs, missing limbs, duplicate person, duplicate face, identity drift, face distortion, facial change, hair change, body shape change, body warping, pose jump, scene change, camera cut, camera angle change, flicker, jitter, temporal inconsistency, motion smear, motion artifacts, background deformation, unstable geometry, red skin, reddish skin, orange skin, oversaturated skin, skin color shift, face color shift, hand color shift, uneven skin tone, unnatural skin tone, identity drift, face identity change, different face, different person, face reinterpretation, facial feature change, eye shape change, nose shape change, lip shape change, jawline change, cheekbone change, face morphing, face warping, facial structure change, camera zoom, zoom in, zoom out, dolly, camera tracking, camera pan, camera tilt, camera pull back, camera push in, reframing, changing shot scale, subject shrinking, subject growing, changing subject size, wide shot transition, close-up transition, perspective change, static pose, standing still, frozen body, minimal movement, weak motion, barely moving, motionless subject, abrupt movement, unnatural acceleration, unnatural deceleration, teleporting, pose interpolation",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt — Motion Artifacts",
+      "notes": "Adds negatives for static/weak/teleporting motion."
+    }
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "ltxv",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Загрузить CLIP"
+    }
+  },
+  "44": {
+    "inputs": {
+      "ckpt_name": "ltxv-2b-0.9.8-distilled-fp8.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Загрузить сheckpoint"
+    }
+  },
+  "69": {
+    "inputs": {
+      "frame_rate": 24,
+      "positive": [
+        "95",
+        0
+      ],
+      "negative": [
+        "95",
+        1
+      ]
+    },
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "Кондиционирование LTXV"
+    }
+  },
+  "78": {
+    "inputs": {
+      "image": "face_default.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Загрузить изображение"
+    }
+  },
+  "82": {
+    "inputs": {
+      "img_compression": 0,
+      "image": [
+        "78",
+        0
+      ]
+    },
+    "class_type": "LTXVPreprocess",
+    "_meta": {
+      "title": "LTXVPreprocess"
+    }
+  },
+  "95": {
+    "inputs": {
+      "width": 512,
+      "height": 768,
+      "length": 241,
+      "batch_size": 1,
+      "strength": 0.875,
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "44",
+        2
+      ],
+      "image": [
+        "82",
+        0
+      ]
+    },
+    "class_type": "LTXVImgToVideo",
+    "_meta": {
+      "title": "LTXVImgToVideo"
+    }
+  },
+  "97": {
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Выбор KSampler"
+    }
+  },
+  "98": {
+    "inputs": {
+      "float_list": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "FloatToSigmas",
+    "_meta": {
+      "title": "Float To Sigmas"
+    }
+  },
+  "99": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "44",
+        0
+      ],
+      "positive": [
+        "69",
+        0
+      ],
+      "negative": [
+        "69",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG Гид"
+    }
+  },
+  "100": {
+    "inputs": {
+      "string": "1.0000, 0.9937, 0.9875, 0.9812, 0.9750, 0.9094, 0.7250, 0.0"
+    },
+    "class_type": "StringToFloatList",
+    "_meta": {
+      "title": "String to Float List"
+    }
+  },
+  "101": {
+    "inputs": {
+      "noise": [
+        "102",
+        0
+      ],
+      "guider": [
+        "99",
+        0
+      ],
+      "sampler": [
+        "97",
+        0
+      ],
+      "sigmas": [
+        "98",
+        0
+      ],
+      "latent_image": [
+        "95",
+        2
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Пользовательский сэмплер (Расширенный)"
+    }
+  },
+  "102": {
+    "inputs": {
+      "noise_seed": 45
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Случайный шум"
+    }
+  },
+  "104": {
+    "inputs": {
+      "samples": [
+        "101",
+        1
+      ],
+      "upscale_model": [
+        "113",
+        0
+      ],
+      "vae": [
+        "44",
+        2
+      ]
+    },
+    "class_type": "LTXVLatentUpsampler",
+    "_meta": {
+      "title": "LTXVLatentUpsampler"
+    }
+  },
+  "105": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "44",
+        0
+      ],
+      "positive": [
+        "69",
+        0
+      ],
+      "negative": [
+        "69",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG Гид"
+    }
+  },
+  "106": {
+    "inputs": {
+      "string": "0.4219, 0.0"
+    },
+    "class_type": "StringToFloatList",
+    "_meta": {
+      "title": "Gentle spatial refinement — 1 step",
+      "notes": "0.4219 → 0.0; temporal interpolation is intentionally absent."
+    }
+  },
+  "107": {
+    "inputs": {
+      "float_list": [
+        "106",
+        0
+      ]
+    },
+    "class_type": "FloatToSigmas",
+    "_meta": {
+      "title": "Float To Sigmas"
+    }
+  },
+  "108": {
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Выбор KSampler"
+    }
+  },
+  "109": {
+    "inputs": {
+      "noise_seed": 45
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Случайный шум"
+    }
+  },
+  "110": {
+    "inputs": {
+      "filename_prefix": "telegram_ltxv_spatial_latent",
+      "samples": [
+        "111",
+        1
+      ]
+    },
+    "class_type": "SaveLatent",
+    "_meta": {
+      "title": "Сохранить латент"
+    }
+  },
+  "111": {
+    "inputs": {
+      "noise": [
+        "109",
+        0
+      ],
+      "guider": [
+        "105",
+        0
+      ],
+      "sampler": [
+        "108",
+        0
+      ],
+      "sigmas": [
+        "107",
+        0
+      ],
+      "latent_image": [
+        "104",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Пользовательский сэмплер (Расширенный)"
+    }
+  },
+  "113": {
+    "inputs": {
+      "model_name": "ltxv-spatial-upscaler-0.9.8.safetensors"
+    },
+    "class_type": "LatentUpscaleModelLoader",
+    "_meta": {
+      "title": "Загрузить модель увеличения latent"
+    }
+  }
+}

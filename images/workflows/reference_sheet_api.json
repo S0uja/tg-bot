@@ -1,0 +1,116 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "cyberrealistic_final.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "2": {
+    "inputs": {
+      "text": "(one adult woman:1.5), (one person:1.45), full body from head to toe, both feet visible, natural relaxed standing pose, facing camera, centered composition, realistic human anatomy, natural realistic proportions, very slim adult body, very low body fat, slim arms and legs, narrow waist, slim hips and thighs, very small adult bust, minimal breast volume, subtle projection, young adult woman in her 20s, long wavy dark brown hair reaching below the shoulders, natural skin texture, realistic skin pores, natural hair, professional full-body photograph, real camera photograph, natural photographic lighting, photorealistic, highly realistic photography",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "3": {
+    "inputs": {
+      "text": "3d, CGI, 3d render, computer generated, mannequin, doll, figurine, plastic skin, artificial skin, toy, statue, game character, cartoon, anime, illustration, two people, multiple people, duplicate person, second person, duplicate body, extra body, extra limbs, extra arms, extra legs, extra hands, bad anatomy, bad hands, deformed body, cropped, cut off feet, mirror, reflection, watermark, text, lowres, blurry, low quality, jpeg artifacts",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "4": {
+    "inputs": {
+      "width": 512,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage"
+  },
+  "5": {
+    "inputs": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 5.8,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
+      "latent_image": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "6": {
+    "inputs": {
+      "samples": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "BodyReference",
+      "images": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
+  "7": {
+    "inputs": {
+      "enabled": true,
+      "swap_model": "inswapper_128.onnx",
+      "facedetection": "retinaface_resnet50",
+      "face_restore_model": "none",
+      "face_restore_visibility": 1,
+      "codeformer_weight": 0.5,
+      "detect_gender_input": "no",
+      "detect_gender_source": "no",
+      "input_faces_index": "0",
+      "source_faces_index": "0",
+      "console_log_level": 1,
+      "input_image": [
+        "6",
+        0
+      ],
+      "source_image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ReActorFaceSwap"
+  },
+  "8": {
+    "inputs": {
+      "image": "face_default.png"
+    },
+    "class_type": "LoadImage"
+  }
+}

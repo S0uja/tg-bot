@@ -1,0 +1,30 @@
+{
+  "2": {
+    "inputs": {
+      "model_name": "Qwen3VL-8B-Instruct-Q4_K_M.gguf",
+      "preset_prompt": "🖼️ Ultra Detailed Description",
+      "custom_prompt": "__PROMPT__",
+      "max_tokens": 256,
+      "keep_model_loaded": false,
+      "seed": 1
+    },
+    "class_type": "AILab_QwenVL_GGUF",
+    "_meta": {
+      "title": "Qwen3-VL 8B • Text Prompt"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": [
+        "2",
+        0
+      ],
+      "filename_prefix": "qwen_prompt",
+      "format": "txt"
+    },
+    "class_type": "SaveText",
+    "_meta": {
+      "title": "Qwen Prompt Output"
+    }
+  }
+}
