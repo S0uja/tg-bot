@@ -31,9 +31,8 @@ TESTS = {
 
 
 SCENE = (
-    "photorealistic full-body portrait of one adult woman, full nude, completely nude, "
-    "no clothing, no underwear, head to toe visible, simple neutral studio background, "
-    "natural soft lighting, front three-quarter camera view"
+    "photorealistic full-body portrait of one adult woman, wearing a simple fitted neutral outfit, "
+    "head to toe visible, simple neutral studio background, natural soft lighting, front three-quarter camera view"
 )
 
 
@@ -117,9 +116,8 @@ def _variant_character(character: Character, parameter: str, value) -> Character
 async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str) -> None:
     """Test one profile parameter through the real Reference generation path.
 
-    The variant Character is passed directly to the same ComfyUI provider workflow
-    used by Reference generation, rather than reloading the saved character and
-    accidentally losing the test variant.
+    All variants in one test use the same deterministic seed so the tested parameter
+    is the primary changing variable instead of random composition/body drift.
     """
     character_service = ctx.character_service
     image_service = ctx.image_service
@@ -133,6 +131,10 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
     total = len(values)
     results: list[tuple[str, bytes]] = []
     failures: list[str] = []
+
+    # One seed for the whole parameter sweep: keep composition and random latent
+    # as stable as possible so only the selected profile parameter is changed.
+    test_seed = (1900000000 + int(character.id)) % (2**32)
 
     face = await character_service.read_face(character.face_file_id)
     reference_dir = pose_category_root("reference")
@@ -184,6 +186,12 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
                 "head fully inside frame, full body, single view, no triptych, no collage, "
                 "do not reproduce multiple reference views"
             )
+            if parameter == "boobs":
+                effective_prompt += (
+                    ", preserve the exact same body weight and body proportions across all variants, "
+                    "same waist, same hips, same abdomen, same shoulders, same arms and legs; "
+                    "change only bust size"
+                )
             result = await image_service.image_provider.generate(
                 character=variant,
                 prompt=effective_prompt,
@@ -194,6 +202,7 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
                 depth_image=depth_image,
                 depth_strength=0.15,
                 generation_size=(512, 768),
+                generation_seed=test_seed,
             )
             if face:
                 result = await image_service.image_provider.reface(image=result, face_reference=face)
