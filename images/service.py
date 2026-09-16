@@ -130,20 +130,23 @@ class ImageGenerationService:
                 except (OSError, FileNotFoundError):
                     body_reference = None
 
-            # The unified pose workflow contains an optional body IP-Adapter
-            # branch. If no separate Body Reference exists, use the Character
-            # reference as a temporary body input. The provider converts it to a
-            # body-focused lock image, so the workflow never contains an invalid
-            # placeholder LoadImage such as telegram_body_lock.png.
             if pose_image is not None and body_reference is None and face_bytes is not None:
                 body_reference = face_bytes
 
             use_pose_workflow = bool(pose_image is not None and self.video_start_frame_workflow_path)
-            result = await self.image_provider.generate(character=character, prompt=prompt.positive, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=depth_strength if use_pose_workflow else None, generation_seed=generation_seed)
+            effective_prompt = prompt.positive
+            if pose_category == "reference":
+                effective_prompt = (
+                    f"{prompt.positive}, exactly one adult woman, one single person only, "
+                    "one body only, one head only, one face only, complete head and face, "
+                    "head fully inside frame, full body, natural slender body proportions, "
+                    "single view, no triptych, no collage, do not reproduce multiple reference views"
+                )
+            result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
             result_path = await self.storage.save(result, f"generation_{generation_id}.png")
-            await self.generations.complete(generation_id, result_path=result_path, enhanced_prompt=prompt.positive)
+            await self.generations.complete(generation_id, result_path=result_path, enhanced_prompt=effective_prompt)
             return character, result, generation_id
         except Exception as exc:
             await self.generations.fail(generation_id, str(exc))
