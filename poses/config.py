@@ -70,7 +70,6 @@ def resolve_pose(pose: str = "", scene: str = "") -> str:
 
 
 def _project_root() -> Path:
-    # poses/config.py -> project root is one level above the poses package.
     return Path(__file__).resolve().parents[1]
 
 
@@ -116,10 +115,16 @@ def pose_target_size() -> tuple[int, int]:
     return _positive_int("POSE_TARGET_WIDTH", 512), _positive_int("POSE_TARGET_HEIGHT", 768)
 
 
-def normalize_pose_image(image_bytes: bytes) -> bytes:
+def normalize_pose_image(image_bytes: bytes, target_size: tuple[int, int] | None = None) -> bytes:
+    """Normalize a pose image without distorting its aspect ratio.
+
+    Normal poses keep the historical 512x768 canvas. Reference uses an explicit
+    768x512 canvas so its three-view OpenPose map stays horizontal and synchronized
+    with the horizontal reference generation workflow.
+    """
     if not image_bytes:
         return image_bytes
-    target_width, target_height = pose_target_size()
+    target_width, target_height = target_size or pose_target_size()
     with Image.open(io.BytesIO(image_bytes)) as source:
         source = ImageOps.exif_transpose(source).convert("RGBA")
         contained = ImageOps.contain(source, (target_width, target_height), method=Image.Resampling.LANCZOS)
