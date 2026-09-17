@@ -114,15 +114,15 @@ async def _run_pose_folder_test(message: types.Message, ctx: TelegramContext, fo
                 context = ImagePromptContext(character_description=character.description, scene=SCENE, pose=folder_name, clothing="", weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength)
                 prompt = await image_service.prompt_service.build_image_prompt(context)
                 effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, one face only, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
-                result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.15, generation_size=(512, 768), generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.35, pose_openpose_strength=openpose_strength)
+                result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.05, generation_size=(512, 768), generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.35, pose_openpose_strength=openpose_strength)
                 if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
-                await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_openpose_{variant_name}.png"), caption=f"🧪 Результат {variant_name}: OpenPose {openpose_strength}\nBody IPAdapter 0.15 → 0.35\n{stem}")])
+                await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_openpose_{variant_name}.png"), caption=f"🧪 Результат {variant_name}: OpenPose {openpose_strength}\nBody IPAdapter 0.15 → 0.35\nDepth 0.05\n{stem}")])
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить позу", callback_data=f"testpose_delete:{folder_name}:{stem}")]])
                 await message.answer("Управление позой:", reply_markup=keyboard)
             except Exception as exc: await message.answer(f"❌ <code>{stem} [{variant_name}]</code>: {exc}", parse_mode="HTML")
     try: await progress.delete()
     except Exception: pass
-    await message.answer(f"✅ <b>Тест поз завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nСравнение OpenPose: A=1.0 / B=0.8\nBody IPAdapter: 0.15→0.35\nDepth: 0.15", parse_mode="HTML")
+    await message.answer(f"✅ <b>Тест поз завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nСравнение OpenPose: A=1.0 / B=0.8\nBody IPAdapter: 0.15→0.35\nDepth: 0.05", parse_mode="HTML")
 
 
 async def _delete_pose_pair(callback: types.CallbackQuery, folder_name: str, stem: str) -> None:
