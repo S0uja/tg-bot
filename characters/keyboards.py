@@ -81,16 +81,18 @@ def character_profile_menu(
     consistency_strength: str | None = "medium",
     images_enabled: bool | None = None,
 ) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [_button(f"⚖️ Телосложение: {weight or 'не задано'}", f"profile:weight:{character_id}" )],
-        [_button(f"💗 Грудь: {bust or 'не задана'}", f"profile:bust:{character_id}" )],
-        [_button(f"🎂 Возраст: {age or 'не задан'}", f"profile:age:{character_id}" )],
-        [_button(f"💇 Прическа: {hairstyle or 'не задана'}", f"profile:hair:{character_id}" )],
-        [_button(f"🎨 Цвет волос: {hair_color or 'не задан'}", f"profile:color:{character_id}" )],
+    rows = [
+        [_button(f"⚖️ Телосложение: {weight or 'не задано'}", f"profile:weight:{character_id}")],
+        [_button(f"💗 Грудь: {bust or 'не задана'}", f"profile:bust:{character_id}")],
+        [_button(f"🎂 Возраст: {age or 'не задан'}", f"profile:age:{character_id}")],
+        [_button(f"💇 Прическа: {hairstyle or 'не задана'}", f"profile:hair:{character_id}")],
+        [_button(f"🎨 Цвет волос: {hair_color or 'не задан'}", f"profile:color:{character_id}")],
         [_button(f"🧬 Consistency: {consistency_strength or 'medium'}", f"profile:consistency:{character_id}")],
-        *([_button("🖼 Создать reference sheet", f"reference:{character_id}")] if (settings.feature_images_enabled if images_enabled is None else images_enabled) else []),
-        [_button("◀️ К персонажу", f"character:{character_id}")],
-    ])
+    ]
+    if settings.feature_images_enabled if images_enabled is None else images_enabled:
+        rows.append([_button("🖼 Создать reference sheet", f"reference:{character_id}")])
+    rows.append([_button("◀️ К персонажу", f"character:{character_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def weight_profile_choices(character_id: int, current: str | None = None) -> InlineKeyboardMarkup:
@@ -136,7 +138,7 @@ def cancel_to_character(character_id: int) -> InlineKeyboardMarkup:
 
 
 def consistency_choices(character_id: int, current: str | None = "medium") -> InlineKeyboardMarkup:
-    values=[("Low","low"),("Medium","medium"),("High","high"),("Maximum","maximum")]
-    rows=[[_button(("✅ " if v==current else "")+label, f"profileconsistency:{character_id}:{v}")] for label,v in values]
+    values = [("Low", "low"), ("Medium", "medium"), ("High", "high"), ("Maximum", "maximum")]
+    rows = [[_button(("✅ " if v == current else "") + label, f"profileconsistency:{character_id}:{v}")] for label, v in values]
     rows.append([_button("◀️ Назад", f"editprofile:{character_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
