@@ -17,7 +17,7 @@ from main.domain.models import Character, ImagePromptContext
 from main.prompts.service import AGE_PROMPTS, BUST_PROMPTS, HAIR_COLOR_PROMPTS, HAIRSTYLE_PROMPTS, WEIGHT_PROMPTS
 from poses.config import pose_category_root
 
-TESTS = {"body": ("Телосложение", list(WEIGHT_PROMPTS)), "boobs": ("Грудь", [1, 2, 3, 4]), "age": ("Возраст", list(AGE_PROMPTS)), "hair": ("Прическа", list(HAIRSTYLE_PROMPTS)), "color": ("Цвет волос", list(HAIR_COLOR_PROMPTS)), "consistency": ("Consistency", ["low", "medium", "high", "maximum"])}
+TESTS = {"body": ("Телосложение", list(WEIGHT_PROMPTS)), "boobs": ("Грудь", [1, 2, 3, 4]), "age": ("Возраст", list(AGE_PROMPTS)), "hair": ("Прическа", list(HAIRSTYLE_PROMPTS)), "color": ("Цвет волос", list(HAIR_COLOR_PROMPTS)), "consistency": ("Consistency", ["low", "medium", "high", "maximum"]), "head": ("Пропорции головы", ["Текущий", "−5%", "−8%"])}
 SCENE = "photorealistic full-body portrait of one adult woman, wearing a simple fitted neutral outfit, head to toe visible, simple neutral studio background, natural soft lighting, front three-quarter camera view"
 POSE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -102,6 +102,13 @@ async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str
             prompt = await image_service.prompt_service.build_image_prompt(context)
             effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, one face only, exactly two arms, exactly two legs, exactly two hands, exactly two feet, one continuous anatomically connected body, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
             if parameter == "boobs": effective_prompt += ", preserve the exact same body weight and body proportions across all variants, same waist, same hips, same abdomen, same shoulders, same arms and legs; change only bust size"
+            elif parameter == "head":
+                head_instruction = {
+                    "Текущий": "keep the current natural head-to-body proportion without intentionally changing head size",
+                    "−5%": "slightly reduce head size relative to the body, approximately 5 percent smaller than the current natural proportion, while preserving the same face identity and facial features",
+                    "−8%": "reduce head size relative to the body, approximately 8 percent smaller than the current natural proportion, while preserving the same face identity and facial features",
+                }[value]
+                effective_prompt += f", {head_instruction}, natural anatomical head-to-body proportions, do not enlarge the head"
             result = await image_service.image_provider.generate(character=variant, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=pose_image, depth_image=depth_image, depth_strength=0.05, generation_size=(512, 768), generation_seed=test_seed)
             if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
             results.append((str(value), result))
@@ -176,7 +183,7 @@ async def _delete_pose_pair(callback: types.CallbackQuery, folder_name: str, ste
 
 
 def register(router: Router, ctx: TelegramContext) -> None:
-    commands = {"body": "test_body", "boobs": "test_boobs", "age": "test_age", "hair": "test_hair", "color": "test_color", "consistency": "test_consistency"}
+    commands = {"body": "test_body", "boobs": "test_boobs", "age": "test_age", "hair": "test_hair", "color": "test_color", "consistency": "test_consistency", "head": "test_head"}
     for parameter, command in commands.items():
         async def handler(message: types.Message, _parameter=parameter):
             try: await _run_test(message, ctx, _parameter)
