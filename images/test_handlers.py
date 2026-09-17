@@ -45,6 +45,17 @@ def _make_sheet(items: list[tuple[str, bytes]], cell_width: int = 256, cell_heig
     output = BytesIO(); sheet.save(output, format="JPEG", quality=92, optimize=True); return output.getvalue()
 
 
+def _pose_generation_size(pose_path: Path) -> tuple[int, int]:
+    try:
+        with Image.open(pose_path) as image:
+            width, height = image.size
+    except Exception as exc:
+        raise ProviderError(f"Не удалось прочитать размер OpenPose скелета: {pose_path}: {exc}") from exc
+    if (width, height) not in ((512, 768), (768, 512)):
+        raise ProviderError(f"Неподдерживаемый размер OpenPose: {width}x{height}. Разрешены только 512x768 и 768x512.")
+    return width, height
+
+
 def _variant_character(character: Character, parameter: str, value) -> Character:
     data = {"weight_profile": character.weight_profile, "bust_size": character.bust_size, "age_category": character.age_category, "hairstyle": character.hairstyle, "hair_color": character.hair_color, "consistency_strength": character.consistency_strength}
     if parameter == "body": data["weight_profile"] = value
@@ -109,20 +120,25 @@ async def _run_pose_folder_test(message: types.Message, ctx: TelegramContext, fo
     for index, (bone_path, depth_path, stem) in enumerate(pairs, 1):
         try: await progress.edit_text(f"🧪 <b>Тест поз: {folder_name}</b>\nПоза {index} из {len(pairs)}: <code>{stem}</code>\nГенерации: A/B", parse_mode="HTML")
         except Exception: pass
+        try:
+            generation_size = _pose_generation_size(bone_path)
+        except ProviderError as exc:
+            await message.answer(f"❌ <code>{stem}</code>: {exc}", parse_mode="HTML")
+            continue
         for variant_name, openpose_strength in variants:
             try:
                 context = ImagePromptContext(character_description=character.description, scene=SCENE, pose=folder_name, clothing="", weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength)
                 prompt = await image_service.prompt_service.build_image_prompt(context)
                 effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, exactly two arms, exactly two legs, exactly two hands, exactly two feet, one continuous anatomically connected body, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
-                result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.05, generation_size=(512, 768), generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.35, pose_openpose_strength=openpose_strength)
+                result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.05, generation_size=generation_size, generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.35, pose_openpose_strength=openpose_strength)
                 if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
-                await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_openpose_{variant_name}.png"), caption=f"🧪 Результат {variant_name}: OpenPose {openpose_strength}\nBody IPAdapter 0.15 → 0.35\nDepth 0.05\n{stem}")])
+                await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_openpose_{variant_name}.png"), caption=f"🧪 Результат {variant_name}: OpenPose {openpose_strength}\nBody IPAdapter 0.15 → 0.35\nDepth 0.05\nCanvas {generation_size[0]}x{generation_size[1]}\n{stem}")])
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить позу", callback_data=f"testpose_delete:{folder_name}:{stem}")]])
                 await message.answer("Управление позой:", reply_markup=keyboard)
             except Exception as exc: await message.answer(f"❌ <code>{stem} [{variant_name}]</code>: {exc}", parse_mode="HTML")
     try: await progress.delete()
     except Exception: pass
-    await message.answer(f"✅ <b>Тест поз завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nСравнение OpenPose: A=0.8 / B=0.7\nBody IPAdapter: 0.15→0.35\nDepth: 0.05", parse_mode="HTML")
+    await message.answer(f"✅ <b>Тест поз завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nСравнение OpenPose: A=0.8 / B=0.7\nBody IPAdapter: 0.15→0.35\nDepth: 0.05\nРазмер каждого генерационного canvas берётся из OpenPose: 512x768 или 768x512", parse_mode="HTML")
 
 
 async def _delete_pose_pair(callback: types.CallbackQuery, folder_name: str, stem: str) -> None:
