@@ -107,6 +107,9 @@ class ComfyUIQwenLLM:
         self.log_workflow = log_workflow
         self._model_name: str | None = None
         self._object_info: dict[str, Any] | None = None
+        self._last_activity = time.monotonic()
+        self._idle_unload_task: asyncio.Task | None = None
+        self._keep_loaded_seconds = 120
 
     async def _get_object_info(self, session: aiohttp.ClientSession) -> dict[str, Any]:
         if self._object_info is not None:
@@ -194,7 +197,9 @@ class ComfyUIQwenLLM:
         self._set_if_present(inputs, "preset_prompt", "🖼️ Detailed Description")
         self._set_if_present(inputs, "device", "auto")
         self._set_if_present(inputs, "max_tokens", 256)
-        self._set_if_present(inputs, "keep_model_loaded", False)
+        # Keep Qwen resident between related requests; the idle timer below
+        # releases VRAM through ComfyUI after 120 seconds without requests.
+        self._set_if_present(inputs, "keep_model_loaded", True)
         self._set_if_present(inputs, "seed", random.randint(1, 2**32 - 1))
 
         if image_filename:
@@ -218,7 +223,37 @@ class ComfyUIQwenLLM:
 
         return workflow
 
+    def _touch_activity(self) -> None:
+        self._last_activity = time.monotonic()
+        if self._idle_unload_task is None or self._idle_unload_task.done():
+            self._idle_unload_task = asyncio.create_task(self._idle_unload_loop())
+
+    async def _idle_unload_loop(self) -> None:
+        while True:
+            remaining = self._keep_loaded_seconds - (time.monotonic() - self._last_activity)
+            if remaining > 0:
+                await asyncio.sleep(min(remaining, 5.0))
+                continue
+            try:
+                timeout = aiohttp.ClientTimeout(total=10)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(
+                        f"{self.base_url}/free",
+                        json={"unload_models": True, "free_memory": True},
+                    ) as response:
+                        if response.status < 300:
+                            logger.info("[ComfyUI][QWEN] Idle timeout reached; models unloaded.")
+                        else:
+                            logger.warning("[ComfyUI][QWEN] /free returned HTTP %s.", response.status)
+            except asyncio.CancelledError:
+                raise
+            except aiohttp.ClientError:
+                logger.warning("[ComfyUI][QWEN] Failed to unload idle models.", exc_info=True)
+            self._idle_unload_task = None
+            return
+
     async def _run(self, prompt: str, image: bytes | None, workflow_path: Path, *, preset_prompt: str = "🖼️ Detailed Description", max_tokens: int = 256) -> str:
+        self._touch_activity()
         self.input_path.mkdir(parents=True, exist_ok=True)
         image_filename = None
         if image is not None:
@@ -245,6 +280,7 @@ class ComfyUIQwenLLM:
                     raise ProviderError("ComfyUI Qwen не вернул prompt_id.")
                 deadline = time.monotonic() + self.timeout
                 while time.monotonic() < deadline:
+                    self._touch_activity()
                     await asyncio.sleep(self.poll_interval)
                     async with session.get(f"{self.base_url}/history/{prompt_id}") as hr:
                         if hr.status >= 300:
@@ -279,6 +315,7 @@ class ComfyUIQwenLLM:
         except aiohttp.ClientError as exc:
             raise ProviderError(f"ComfyUI недоступен: {exc}") from exc
         finally:
+            self._touch_activity()
             if image_filename:
                 try:
                     (self.input_path / image_filename).unlink(missing_ok=True)
