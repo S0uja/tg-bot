@@ -187,6 +187,9 @@ class PoseLibraryIndex:
         if name.endswith("_noise_final_openpose.png"):
             base = name.removesuffix("_noise_final_openpose.png")
             candidates.append(image_path.with_name(base + "_bone_structure.png"))
+        elif name.endswith("_depth.png"):
+            base = name.removesuffix("_depth.png")
+            candidates.append(image_path.with_name(base + "_bone_structure.png"))
         elif name.endswith("_bone_structure.png"):
             candidates.append(image_path)
         for candidate in candidates:
