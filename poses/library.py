@@ -177,6 +177,28 @@ class PoseLibraryIndex:
             extra_files=extra_files,
         )
 
+    def get_analysis(self, image_path: Path | None) -> dict[str, Any] | None:
+        """Return cached semantic pose metadata for a selected pose image."""
+        if image_path is None:
+            return None
+        self._load()
+        candidates = [image_path]
+        name = image_path.name
+        if name.endswith("_noise_final_openpose.png"):
+            base = name.removesuffix("_noise_final_openpose.png")
+            candidates.append(image_path.with_name(base + "_bone_structure.png"))
+        elif name.endswith("_bone_structure.png"):
+            candidates.append(image_path)
+        for candidate in candidates:
+            try:
+                key = self._key(candidate)
+            except ValueError:
+                continue
+            entry = self._entries.get(key)
+            if isinstance(entry, dict) and isinstance(entry.get("analysis"), dict):
+                return entry["analysis"]
+        return None
+
     async def analyze_all(
         self, on_progress: ProgressCallback | None = None,
     ) -> tuple[int, int, list[str]]:
