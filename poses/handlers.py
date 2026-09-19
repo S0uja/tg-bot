@@ -580,23 +580,52 @@ def register(router: Router, ctx: TelegramContext) -> None:
             await message.answer("❌ Не найдено ни одного подходящего Depth-кандидата.")
             return
 
+        # Keep the second AI request well below Qwen's 8192-token context.
+        # Large pose libraries can contain hundreds of compatible Depth maps.
+        scene_words = {
+            word for word in re.findall(r"[a-zа-яё]{4,}", scene.lower())
+            if word not in {"девушка", "женщина", "девушку", "женщину"}
+        }
+
+        def candidate_score(item: tuple[Path, dict]) -> int:
+            _, metadata = item
+            searchable = " ".join([
+                str(metadata.get("arms", "")),
+                str(metadata.get("legs", "")),
+                str(metadata.get("orientation", "")),
+                str(metadata.get("posture", "")),
+                " ".join(str(x) for x in metadata.get("activity_tags", [])),
+                " ".join(str(x) for x in metadata.get("keywords_ru", [])),
+                " ".join(str(x) for x in metadata.get("support", [])),
+            ]).lower()
+            return sum(1 for word in scene_words if word in searchable)
+
+        ranked = sorted(
+            enumerate(compatible),
+            key=lambda item: candidate_score(item[1]),
+            reverse=True,
+        )
+        shortlist = ranked[:16]
+
         candidates = []
-        for index, (candidate, metadata) in enumerate(compatible, start=1):
+        for candidate_index, (candidate, metadata) in enumerate(shortlist, start=1):
             candidates.append({
-                "index": index,
-                "file": candidate.relative_to(root_dir).as_posix(),
+                "index": candidate_index,
                 "posture": metadata.get("posture", "unknown"),
                 "orientation": metadata.get("orientation", "unknown"),
-                "activity_tags": metadata.get("activity_tags", []),
-                "support": metadata.get("support", []),
-                "arms": metadata.get("arms", "unknown"),
-                "legs": metadata.get("legs", "unknown"),
+                "activity_tags": metadata.get("activity_tags", [])[:4],
+                "support": metadata.get("support", [])[:4],
+                "arms": str(metadata.get("arms", "unknown"))[:120],
+                "legs": str(metadata.get("legs", "unknown"))[:120],
                 "framing": metadata.get("framing", "unknown"),
-                "keywords_ru": metadata.get("keywords_ru", []),
+                "keywords_ru": metadata.get("keywords_ru", [])[:6],
             })
 
-        selected_index = await enhancer.select_pose_candidate(scene, candidates)
-        depth_path, pose_metadata = compatible[selected_index - 1]
+        if len(shortlist) == 1:
+            depth_path, pose_metadata = shortlist[0][1]
+        else:
+            selected_index = await enhancer.select_pose_candidate(scene, candidates)
+            depth_path, pose_metadata = shortlist[selected_index - 1][1]
 
         pose_orientation = str((pose_metadata or {}).get("orientation", "")).strip()
 
