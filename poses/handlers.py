@@ -519,7 +519,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
         else:
             await progress.edit_text("❌ Не удалось получить ни одного результата.")
 
-    @router.message(CharacterChat.chatting, Command("test_prompt_builder"))
+    @router.message(Command("test_prompt_builder"))
     async def test_prompt_builder(message: types.Message, state: FSMContext):
         """Build and show a prompt using one randomly selected Depth pose only."""
         raw = (message.text or "").strip()
@@ -538,17 +538,13 @@ def register(router: Router, ctx: TelegramContext) -> None:
             )
             return
 
-        data = await state.get_data()
-        character_id = data.get("character_id")
-        if not character_id:
-            await message.answer("❌ Сначала откройте чат с персонажем.")
+        # The test command is independent from Chat FSM. Resolve the character
+        # directly from the database so it also works when CHAT is disabled.
+        characters = await character_service.list(message.from_user.id)
+        if not characters:
+            await message.answer("❌ В БД не найден ни один персонаж для этого пользователя.")
             return
-
-        try:
-            character = await character_service.get(message.from_user.id, int(character_id))
-        except AppError as exc:
-            await message.answer(f"❌ Не удалось загрузить персонажа: {exc}")
-            return
+        character = characters[0]
 
         root_dir = poses_root().resolve()
         depth_files = sorted(
