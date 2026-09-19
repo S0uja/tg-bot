@@ -69,7 +69,15 @@ JSON schema:
   "confidence": 0.0
 }
 
-Rules: describe only clearly visible pose geometry and physical action. Use unknown when uncertain. activity_tags and keywords_ru must be concise, lowercase, unique, and useful for matching a future request such as 'упражнение на полу'."""
+Rules:
+- Describe only clearly visible pose geometry and physical support.
+- Do NOT classify a pose as standing merely because the body is vertically aligned in the image.
+- Standing requires visible evidence that the subject is weight-bearing through the feet/legs.
+- A person can be lying down while the head is near the top of the image and the feet near the bottom. Do not use image orientation alone to distinguish standing from lying.
+- If the body appears supported by the back or another surface and there is no clear weight-bearing evidence through the feet, prefer lying.
+- Use unknown when the support/posture cannot be determined reliably.
+- activity_tags and keywords_ru must be concise, lowercase, unique, and useful for matching a future request such as 'упражнение на полу'.
+- activity_tags MUST contain English words only."""
 
 CAMERA_STATIC_SUFFIX = "camera completely static and locked in place, fixed camera position, fixed focal length, fixed perspective, unchanged framing from frame 0, unchanged aspect ratio and orientation, no zoom in, no zoom out, no dolly, no tracking, no pan, no tilt, no reframing, no camera angle change, no shot scale change, no crop change, preserve the background position relative to the frame, only the requested subject action changes"
 MOTION_SUFFIX = "clear and noticeable physical movement, visible beginning-to-end action, natural body displacement matching the requested action, complete the requested motion rather than only starting it"
