@@ -601,8 +601,8 @@ def register(router: Router, ctx: TelegramContext) -> None:
             return sum(1 for word in scene_words if word in searchable)
 
         ranked = sorted(
-            enumerate(compatible),
-            key=lambda item: candidate_score(item[1]),
+            compatible,
+            key=candidate_score,
             reverse=True,
         )
         shortlist = ranked[:16]
@@ -622,10 +622,10 @@ def register(router: Router, ctx: TelegramContext) -> None:
             })
 
         if len(shortlist) == 1:
-            depth_path, pose_metadata = shortlist[0][1]
+            depth_path, pose_metadata = shortlist[0]
         else:
             selected_index = await enhancer.select_pose_candidate(scene, candidates)
-            depth_path, pose_metadata = shortlist[selected_index - 1][1]
+            depth_path, pose_metadata = shortlist[selected_index - 1]
 
         pose_orientation = str((pose_metadata or {}).get("orientation", "")).strip()
 
