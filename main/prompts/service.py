@@ -1,6 +1,7 @@
 from main.domain.models import GeneratedPrompt, ImagePromptContext
 from main.infrastructure.ai.llm.base import PromptEnhancer
 from main.prompts.consistency import consistency_prompt
+from main.prompts.builder import PromptBuilder
 from poses.orientation import ORIENTATION_PROMPTS
 
 
@@ -82,7 +83,8 @@ class PromptService:
         scene/environment -> exact pose/clothing -> character profile.
         """
         enhanced = await self.enhancer.enhance_image_prompt(context)
-        enhanced = " ".join(enhanced.strip().split()).rstrip(" ,.")
+        spec = PromptBuilder.parse(enhanced)
+        enhanced = PromptBuilder.render(spec, context)
 
         parts = [enhanced]
 
@@ -120,9 +122,26 @@ class PromptService:
                 f"{ORIENTATION_PROMPTS.get(orientation, ORIENTATION_PROMPTS['unknown'])}"
             )
 
+        pose_metadata_block = ""
+        if context.pose_metadata:
+            metadata = context.pose_metadata
+            metadata_parts = []
+            for key in ("posture", "arms", "legs", "framing"):
+                value = str(metadata.get(key, "")).strip()
+                if value and value.lower() != "unknown":
+                    metadata_parts.append(f"{key}: {value}")
+            tags = metadata.get("activity_tags") or metadata.get("keywords_ru") or []
+            if isinstance(tags, list) and tags:
+                metadata_parts.append("tags: " + ", ".join(str(tag).strip() for tag in tags[:6] if str(tag).strip()))
+            if metadata_parts:
+                pose_metadata_block = "(POSE LIBRARY METADATA:1.15), " + ", ".join(metadata_parts)
+
         profile = profile_prompt(context)
         if profile:
             parts.append(profile)
+
+        if pose_metadata_block:
+            parts.append(pose_metadata_block)
 
         if pose_lock_block:
             parts.append(pose_lock_block)
@@ -137,6 +156,7 @@ class PromptService:
                     context.pose.strip(),
                     context.clothing.strip(),
                     profile,
+                    pose_metadata_block,
                     pose_lock_block,
                     orientation_block,
                 ) if p
