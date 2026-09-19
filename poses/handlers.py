@@ -16,7 +16,7 @@ from characters.service import CharacterService
 from chat.service import ChatReply, ChatService
 from images.service import ImageGenerationService
 from videos.service import VideoGenerationService
-from poses.config import poses_root, normalize_pose_image
+from poses.config import poses_root, normalize_pose_image, resolve_pose
 from main.domain.errors import AppError
 from main.domain.models import ImagePromptContext
 from chat.keyboards import EXIT_CHAT_TEXT, chat_keyboard
@@ -557,8 +557,41 @@ def register(router: Router, ctx: TelegramContext) -> None:
             )
             return
 
-        depth_path = random.choice(depth_files)
-        pose_metadata = image_service.pose_library.get_analysis(depth_path)
+        # Do not pick an arbitrary pose when the scene explicitly requires
+        # a posture (e.g. "стоит", "сидит", "лежит", "на коленях").
+        # The pose metadata was analyzed from Depth, so selection stays Depth-only.
+        requested_pose = resolve_pose("", scene)
+        compatible: list[tuple[Path, dict]] = []
+        for candidate in depth_files:
+            metadata = image_service.pose_library.get_analysis(candidate) or {}
+            posture = str(metadata.get("posture", "")).strip().lower()
+            category_posture = {
+                "stand": "standing",
+                "sitting": "sitting",
+                "lying": "lying",
+                "kneeling": "kneeling",
+                "all_fours": "all_fours",
+                "crouching": "crouching",
+                "bent_over": "bent_over",
+            }.get(requested_pose, requested_pose)
+            if category_posture and category_posture != "unknown":
+                if posture == category_posture:
+                    compatible.append((candidate, metadata))
+            else:
+                compatible.append((candidate, metadata))
+
+        if requested_pose and not compatible:
+            await message.answer(
+                f"❌ В кеше Depth-поз не найдено подходящей позы для категории "
+                f"<code>{escape(requested_pose)}</code>."
+            )
+            return
+
+        if not compatible:
+            await message.answer("❌ Не найдено ни одной подходящей Depth-позы.")
+            return
+
+        depth_path, pose_metadata = random.choice(compatible)
         pose_orientation = str((pose_metadata or {}).get("orientation", "")).strip()
 
         prompt = await image_service.prompt_service.build_image_prompt(
