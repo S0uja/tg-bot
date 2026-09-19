@@ -22,7 +22,7 @@ PROMPT_ENGINE_BASE = (
     "Do not invent people, objects, clothing, locations, poses or camera movement. "
     "Return only the requested final text, with no explanation."
 )
-IMAGE_PROMPT_SYSTEM = PROMPT_ENGINE_BASE + " Target: CyberRealistic SD 1.5 photorealistic image generation. Return a concise scene prompt of about 30-55 English words. Preserve requested environment, action, composition, camera and lighting. Preserve exact requested clothing and pose. Do not describe body shape, bust size, age, hairstyle, hair color, facial identity or character profile; the application adds those separately. Do not add model, sampler, CFG, resolution, negative-prompt terms, reference-image instructions, or identity-lock instructions."
+IMAGE_PROMPT_SYSTEM = PROMPT_ENGINE_BASE + " Target: CyberRealistic SD 1.5 photorealistic image generation. Return ONLY valid JSON with exactly these string fields: subject, action, environment, composition, camera, lighting, atmosphere, details. Keep each field concise, factual and in English. Preserve the user's requested scene and intent. If structured pose or clothing constraints are supplied, do not invent or replace them; do not restate pose geometry in action. Do not describe body shape, bust size, age, hairstyle, hair color, facial identity or character profile; the application adds those separately. Do not add model, sampler, CFG, resolution, negative-prompt terms, reference-image instructions, or identity-lock instructions."
 VIDEO_PROMPT_SYSTEM = PROMPT_ENGINE_BASE + " Target: LTXV image-to-video. Describe the visible starting state and then one continuous, clearly visible requested motion. The source image is authoritative for identity, face, hair, body, clothing, environment, composition, framing, aspect ratio and lighting. Preserve those facts exactly. Translate the action into physical movement: specify what body parts move, direction, posture change and beginning-to-end sequence. Make the requested action obvious and substantial. Do not invent extra actions. If camera movement is not explicitly requested, keep the camera static. Write 60-100 English words focused on motion, amplitude and continuity."
 CHARACTER_ANALYSIS_SYSTEM = """Analyze the supplied reference image only for the five character profile parameters below. Return ONLY valid JSON. Never return a face description or facial identity analysis. Never identify the person, infer ethnicity, or infer private/sensitive attributes. Do not invent details that are not visible. Use null for unknown/not visible values. The character is an adult.
 
@@ -341,6 +341,8 @@ class ComfyUIQwenLLM:
         parts = [f"USER IMAGE REQUEST: {context.scene.strip()}"]
         if context.pose.strip(): parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
         if context.clothing.strip(): parts.append(f"STRUCTURED CLOTHING CONSTRAINT: {context.clothing.strip()}")
+        if context.pose_metadata:
+            parts.append(f"POSE LIBRARY METADATA: {json.dumps(context.pose_metadata, ensure_ascii=False)}")
         parts.append("Structured character profile is authoritative and will be appended by the application. Do not guess or contradict it.")
         return await self._run(IMAGE_PROMPT_SYSTEM + "\n\n" + "\n".join(parts), None, self.create_workflow_path)
 
