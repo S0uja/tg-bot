@@ -557,33 +557,39 @@ def register(router: Router, ctx: TelegramContext) -> None:
             )
             return
 
-        # Do not pick an arbitrary pose when the scene explicitly requires
-        # a posture (e.g. "стоит", "сидит", "лежит", "на коленях").
-        # The pose metadata was analyzed from Depth, so selection stays Depth-only.
-        requested_pose = resolve_pose("", scene)
+        # Resolve the required posture directly from the user's text.
+        # This test must never choose a random posture when the description
+        # explicitly says "стоит", "сидит", "лежит", "на коленях", etc.
+        scene_norm = scene.lower().replace("ё", "е")
+        posture_rules = (
+            ("standing", ("стоит", "стоять", "стоя", "встала", "встал", "standing", "stand")),
+            ("sitting", ("сидит", "сидеть", "сидя", "села", "сел", "sitting", "sit")),
+            ("lying", ("лежит", "лежать", "лежа", "легла", "лег", "lying", "lie")),
+            ("kneeling", ("на коленях", "на колени", "kneeling")),
+            ("all_fours", ("на четвереньках", "четвереньках", "all fours")),
+            ("crouching", ("присела", "присев", "на корточках", "crouching")),
+            ("bent_over", ("наклонилась", "наклонена", "согнулась", "наклон", "bent over")),
+        )
+        requested_posture = ""
+        for posture_name, phrases in posture_rules:
+            if any(phrase in scene_norm for phrase in phrases):
+                requested_posture = posture_name
+                break
+
         compatible: list[tuple[Path, dict]] = []
         for candidate in depth_files:
             metadata = image_service.pose_library.get_analysis(candidate) or {}
             posture = str(metadata.get("posture", "")).strip().lower()
-            category_posture = {
-                "stand": "standing",
-                "sitting": "sitting",
-                "lying": "lying",
-                "kneeling": "kneeling",
-                "all_fours": "all_fours",
-                "crouching": "crouching",
-                "bent_over": "bent_over",
-            }.get(requested_pose, requested_pose)
-            if category_posture and category_posture != "unknown":
-                if posture == category_posture:
+            if requested_posture:
+                if posture == requested_posture:
                     compatible.append((candidate, metadata))
             else:
                 compatible.append((candidate, metadata))
 
-        if requested_pose and not compatible:
+        if requested_posture and not compatible:
             await message.answer(
                 f"❌ В кеше Depth-поз не найдено подходящей позы для категории "
-                f"<code>{escape(requested_pose)}</code>."
+                f"<code>{escape(requested_posture)}</code>."
             )
             return
 
