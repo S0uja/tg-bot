@@ -341,8 +341,9 @@ class ComfyUIQwenLLM:
         parts = [f"USER IMAGE REQUEST: {context.scene.strip()}"]
         if context.pose.strip(): parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
         if context.clothing.strip(): parts.append(f"STRUCTURED CLOTHING CONSTRAINT: {context.clothing.strip()}")
-        if context.pose_metadata:
-            parts.append(f"POSE LIBRARY METADATA: {json.dumps(context.pose_metadata, ensure_ascii=False)}")
+        pose_metadata = getattr(context, 'pose_metadata', None)
+        if pose_metadata:
+            parts.append(f"POSE LIBRARY METADATA: {json.dumps(pose_metadata, ensure_ascii=False)}")
         parts.append("Structured character profile is authoritative and will be appended by the application. Do not guess or contradict it.")
         return await self._run(IMAGE_PROMPT_SYSTEM + "\n\n" + "\n".join(parts), None, self.create_workflow_path)
 
