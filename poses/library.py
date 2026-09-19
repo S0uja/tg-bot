@@ -26,7 +26,7 @@ class PoseCleanupResult:
 
 
 class PoseLibraryIndex:
-    """Persistent Vision metadata for original pose-reference images."""
+    """Persistent Vision metadata for pose-reference image pairs."""
 
     def __init__(self, root: Path, analyzer: Any) -> None:
         self.root = root.resolve()
@@ -109,11 +109,19 @@ class PoseLibraryIndex:
             ).is_file()
         )
 
-    def cleanup_pairs(self) -> PoseCleanupResult:
-        """Keep only complete ``*_bone_structure.png`` / ``*_depth.png`` pairs.
+    def _analysis_pairs(self) -> list[tuple[Path, Path]]:
+        """Return (bone_structure, depth) for every valid pair."""
+        return [
+            (bone_path, bone_path.with_name(
+                bone_path.name.removesuffix("_bone_structure.png") + "_depth.png"
+            ))
+            for bone_path in self.pose_images()
+        ]
 
-        Metadata caches are intentionally excluded: this command is allowed to
-        clean pose artifacts, not to erase its own persistent analysis results.
+    def cleanup_pairs(self) -> PoseCleanupResult:
+        """Keep only complete *_bone_structure.png / *_depth.png pairs.
+
+        Metadata caches are intentionally excluded.
         """
         if not self.root.is_dir():
             return PoseCleanupResult(0, 0, 0, 0)
@@ -146,8 +154,6 @@ class PoseLibraryIndex:
                 incomplete_sets += 1
                 delete_targets.update(group)
 
-        # A depth map without its canonical bone map, and every other orphaned
-        # source/derivative, cannot form a pose usable by the generator.
         for path in assets:
             if path not in handled:
                 delete_targets.add(path)
@@ -175,15 +181,17 @@ class PoseLibraryIndex:
         self, on_progress: ProgressCallback | None = None,
     ) -> tuple[int, int, list[str]]:
         self._load()
-        files = self.pose_images()
+        pairs = self._analysis_pairs()
         analyzed = 0
         cached = 0
         failures: list[str] = []
-        total = len(files)
+        total = len(pairs)
 
-        for index, image_path in enumerate(files, 1):
-            key = self._key(image_path)
-            image = image_path.read_bytes()
+        for index, (bone_path, depth_path) in enumerate(pairs, 1):
+            # Depth maps contain the silhouette/body geometry in a much clearer
+            # form for semantic Vision analysis than the OpenPose skeleton.
+            image = depth_path.read_bytes()
+            key = self._key(bone_path)
             digest = self._sha256(image)
             entry = self._entries.get(key)
             if isinstance(entry, dict) and entry.get("sha256") == digest:
@@ -193,6 +201,7 @@ class PoseLibraryIndex:
                     analysis = self._normalize(await self.analyzer.analyze_pose_metadata(image))
                     self._entries[key] = {
                         "sha256": digest,
+                        "analysis_source": self._key(depth_path),
                         "analyzed_at": datetime.now(timezone.utc).isoformat(),
                         "analysis": analysis,
                     }
