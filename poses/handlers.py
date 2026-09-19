@@ -557,36 +557,19 @@ def register(router: Router, ctx: TelegramContext) -> None:
             )
             return
 
-        # Resolve the required posture directly from the user's text.
-        # This test must never choose a random posture when the description
-        # explicitly says "стоит", "сидит", "лежит", "на коленях", etc.
-        scene_norm = scene.lower().replace("ё", "е")
-        posture_rules = (
-            ("standing", ("стоит", "стоять", "стоя", "встала", "встал", "standing", "stand")),
-            ("sitting", ("сидит", "сидеть", "сидя", "села", "сел", "sitting", "sit")),
-            ("lying", ("лежит", "лежать", "лежа", "легла", "лег", "lying", "lie")),
-            ("kneeling", ("на коленях", "на колени", "kneeling")),
-            ("all_fours", ("на четвереньках", "четвереньках", "all fours")),
-            ("crouching", ("присела", "присев", "на корточках", "crouching")),
-            ("bent_over", ("наклонилась", "наклонена", "согнулась", "наклон", "bent over")),
-        )
-        requested_posture = ""
-        for posture_name, phrases in posture_rules:
-            if any(phrase in scene_norm for phrase in phrases):
-                requested_posture = posture_name
-                break
+        # Let the configured AI classify the requested posture, then shortlist
+        # compatible cached Depth maps and let the AI choose the closest one.
+        enhancer = image_service.prompt_service.enhancer
+        requested_posture = await enhancer.classify_scene_posture(scene)
 
         compatible: list[tuple[Path, dict]] = []
         for candidate in depth_files:
             metadata = image_service.pose_library.get_analysis(candidate) or {}
             posture = str(metadata.get("posture", "")).strip().lower()
-            if requested_posture:
-                if posture == requested_posture:
-                    compatible.append((candidate, metadata))
-            else:
+            if requested_posture == "unknown" or posture == requested_posture:
                 compatible.append((candidate, metadata))
 
-        if requested_posture and not compatible:
+        if requested_posture != "unknown" and not compatible:
             await message.answer(
                 f"❌ В кеше Depth-поз не найдено подходящей позы для категории "
                 f"<code>{escape(requested_posture)}</code>."
@@ -594,10 +577,27 @@ def register(router: Router, ctx: TelegramContext) -> None:
             return
 
         if not compatible:
-            await message.answer("❌ Не найдено ни одной подходящей Depth-позы.")
+            await message.answer("❌ Не найдено ни одного подходящего Depth-кандидата.")
             return
 
-        depth_path, pose_metadata = random.choice(compatible)
+        candidates = []
+        for index, (candidate, metadata) in enumerate(compatible, start=1):
+            candidates.append({
+                "index": index,
+                "file": candidate.relative_to(root_dir).as_posix(),
+                "posture": metadata.get("posture", "unknown"),
+                "orientation": metadata.get("orientation", "unknown"),
+                "activity_tags": metadata.get("activity_tags", []),
+                "support": metadata.get("support", []),
+                "arms": metadata.get("arms", "unknown"),
+                "legs": metadata.get("legs", "unknown"),
+                "framing": metadata.get("framing", "unknown"),
+                "keywords_ru": metadata.get("keywords_ru", []),
+            })
+
+        selected_index = await enhancer.select_pose_candidate(scene, candidates)
+        depth_path, pose_metadata = compatible[selected_index - 1]
+
         pose_orientation = str((pose_metadata or {}).get("orientation", "")).strip()
 
         prompt = await image_service.prompt_service.build_image_prompt(
