@@ -337,6 +337,43 @@ class ComfyUIQwenLLM:
         from characters.analysis import extract_json_object
         return extract_json_object(text)
 
+    async def classify_scene_posture(self, scene: str) -> str:
+        system = (
+            "Classify the main requested body posture. Return ONLY valid JSON: "
+            "{\"posture\":\"standing|sitting|lying|kneeling|all_fours|crouching|bent_over|unknown\"}. "
+            "Choose the primary posture requested by the user. Use unknown if none is specified."
+        )
+        text = await self._run(system + "\n\nUSER SCENE:\n" + scene.strip(), None, self.create_workflow_path, max_tokens=64)
+        from characters.analysis import extract_json_object
+        data = extract_json_object(text)
+        posture = str(data.get("posture", "unknown")).strip().lower()
+        allowed = {"standing", "sitting", "lying", "kneeling", "all_fours", "crouching", "bent_over", "unknown"}
+        if posture not in allowed:
+            raise ProviderError(f"Qwen вернул недопустимую позу: {posture}")
+        return posture
+
+    async def select_pose_candidate(self, scene: str, candidates: list[dict]) -> int:
+        system = (
+            "Choose the single best pose candidate for the user's request. Return ONLY valid JSON: "
+            "{\"index\":1}. The index MUST be one of the supplied candidates. "
+            "Compare posture, arms, legs, support, framing and activity tags."
+        )
+        text = await self._run(
+            system + "\n\nREQUEST:\n" + scene.strip()
+            + "\n\nCANDIDATES:\n" + json.dumps(candidates, ensure_ascii=False),
+            None, self.create_workflow_path, max_tokens=128,
+        )
+        from characters.analysis import extract_json_object
+        data = extract_json_object(text)
+        try:
+            index = int(data["index"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ProviderError("Qwen вернул некорректный индекс позы.") from exc
+        valid = {int(item["index"]) for item in candidates}
+        if index not in valid:
+            raise ProviderError(f"Qwen вернул индекс позы вне списка: {index}")
+        return index
+
     async def enhance_image_prompt(self, context: ImagePromptContext) -> str:
         parts = [f"USER IMAGE REQUEST: {context.scene.strip()}"]
         if context.pose.strip(): parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
