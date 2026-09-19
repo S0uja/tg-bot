@@ -519,7 +519,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
         else:
             await progress.edit_text("❌ Не удалось получить ни одного результата.")
 
-    @router.message(CharacterChat.active, Command("test_prompt_builder"))
+    @router.message(CharacterChat.chatting, Command("test_prompt_builder"))
     async def test_prompt_builder(message: types.Message, state: FSMContext):
         """Build and show a prompt using one randomly selected Depth pose only."""
         raw = (message.text or "").strip()
