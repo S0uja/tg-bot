@@ -21,11 +21,11 @@ PROMPT_ENGINE_BASE = (
 IMAGE_PROMPT_SYSTEM = (
     PROMPT_ENGINE_BASE + " "
     "Target: CyberRealistic SD 1.5 photorealistic image generation. "
-    "Return a concise scene prompt of about 30-55 English words. "
-    "Preserve the user's requested environment, action, composition, camera and lighting. "
-    "Preserve the exact requested clothing and pose; never invent or replace them. "
-    "Do not describe body shape, bust size, age, hairstyle, hair color, facial identity or character profile; "
-    "the application adds those separately. "
+    "Return ONLY valid JSON with exactly these string fields: subject, action, environment, composition, camera, lighting, atmosphere, details. "
+    "Keep each field concise, factual and in English. "
+    "Preserve the user's requested scene and intent. "
+    "If structured pose or clothing constraints are supplied, do not invent or replace them; do not restate pose geometry in action. "
+    "Do not describe body shape, bust size, age, hairstyle, hair color, facial identity or character profile; the application adds those separately. "
     "Do not add model, sampler, CFG, resolution, negative-prompt terms, reference-image instructions, or identity-lock instructions."
 )
 
@@ -172,6 +172,8 @@ class OpenAICompatibleLLM:
             user_parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
         if context.clothing.strip():
             user_parts.append(f"STRUCTURED CLOTHING CONSTRAINT: {context.clothing.strip()}")
+        if context.pose_metadata:
+            user_parts.append(f"POSE LIBRARY METADATA: {json.dumps(context.pose_metadata, ensure_ascii=False)}")
         user_parts.append(
             "Structured character profile (body/age/hair attributes) is authoritative and will be appended by the application. "
             "Do not guess or contradict it."
