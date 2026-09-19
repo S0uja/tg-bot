@@ -172,8 +172,9 @@ class OpenAICompatibleLLM:
             user_parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
         if context.clothing.strip():
             user_parts.append(f"STRUCTURED CLOTHING CONSTRAINT: {context.clothing.strip()}")
-        if context.pose_metadata:
-            user_parts.append(f"POSE LIBRARY METADATA: {json.dumps(context.pose_metadata, ensure_ascii=False)}")
+        pose_metadata = getattr(context, 'pose_metadata', None)
+        if pose_metadata:
+            user_parts.append(f"POSE LIBRARY METADATA: {json.dumps(pose_metadata, ensure_ascii=False)}")
         user_parts.append(
             "Structured character profile (body/age/hair attributes) is authoritative and will be appended by the application. "
             "Do not guess or contradict it."
