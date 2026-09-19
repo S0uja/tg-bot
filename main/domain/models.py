@@ -62,6 +62,7 @@ class ImagePromptContext:
     hair_color: str | None = None
     consistency_strength: str | None = "medium"
     pose_orientation: str = ""
+    pose_metadata: dict | None = None
 
 
 @dataclass(slots=True)
