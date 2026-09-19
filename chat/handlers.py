@@ -61,7 +61,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
         except AppError:
             await callback.answer("Персонаж не найден", show_alert=True)
 
-    @router.message(CharacterChat.chatting, F.text)
+    @router.message(CharacterChat.chatting, F.text & ~F.text.startswith("/"))
     async def chat_message(message: types.Message, state: FSMContext):
         user_text = message.text or ""
         data = await state.get_data()
