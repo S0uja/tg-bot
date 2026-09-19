@@ -672,11 +672,11 @@ def register(router: Router, ctx: TelegramContext) -> None:
             caption=f"🧩 Выбранная поза — только Depth\n{relative_depth}",
         )
 
-    @router.message(F.photo, F.caption.regexp(r"^/test_pose_analysis(?:@\\w+)?(?:\\s+.*)?$"))
+    @router.message(F.photo)
     async def test_pose_analysis(message: types.Message):
-        """Analyze exactly the photo attached to /test_pose_analysis."""
-        if not message.photo:
-            await message.answer("❌ Прикрепите Depth-карту вместе с командой /test_pose_analysis.")
+        """Analyze exactly the photo when /test_pose_analysis is used as caption."""
+        caption = (message.caption or "").strip()
+        if not re.match(r"^/test_pose_analysis(?:@\w+)?(?:\s+.*)?$", caption, flags=re.I):
             return
 
         try:
@@ -686,12 +686,13 @@ def register(router: Router, ctx: TelegramContext) -> None:
             if not image:
                 raise RuntimeError("Telegram не вернул данные изображения.")
 
+            await message.answer("🔎 Анализирую именно прикреплённую картинку…")
             enhancer = image_service.prompt_service.enhancer
             metadata = await enhancer.analyze_pose_metadata(image)
             normalized = image_service.pose_library._normalize(metadata)
 
             await message.answer(
-                "<b>🧪 Pose Analysis — именно это изображение</b>\\n\\n"
+                "<b>🧪 Pose Analysis — именно это изображение</b>\n\n"
                 f"<code>{escape(json.dumps(normalized, ensure_ascii=False, indent=2))}</code>",
                 parse_mode="HTML",
             )
@@ -704,6 +705,14 @@ def register(router: Router, ctx: TelegramContext) -> None:
                 f"❌ Ошибка анализа: <code>{escape(str(exc))}</code>",
                 parse_mode="HTML",
             )
+
+    @router.message(Command("test_pose_analysis"))
+    async def test_pose_analysis_command(message: types.Message):
+        await message.answer(
+            "📷 Прикрепи Depth-карту <b>одним сообщением</b> и напиши в подписи:\n"
+            "<code>/test_pose_analysis</code>",
+            parse_mode="HTML",
+        )
 
 
     @router.callback_query(F.data.startswith("pose_delete:"))
