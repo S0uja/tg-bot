@@ -13,6 +13,7 @@ PRESERVED_METADATA_FILES = {CACHE_FILENAME, ".pose_orientation_cache.json"}
 POSTURES = {"standing", "sitting", "lying", "kneeling", "all_fours", "crouching", "bent_over", "unknown"}
 ORIENTATIONS = {"front", "back", "left_side", "right_side", "three_quarter_front", "three_quarter_back", "unknown"}
 FRAMINGS = {"full_body", "upper_body", "lower_body", "partial", "unknown"}
+POSE_ANALYSIS_CACHE_VERSION = 2
 
 ProgressCallback = Callable[[int, int, int, int, str], Awaitable[None]]
 
@@ -41,14 +42,15 @@ class PoseLibraryIndex:
         self._loaded = True
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
+            version = payload.get("version", 0) if isinstance(payload, dict) else 0
             entries = payload.get("entries", {}) if isinstance(payload, dict) else {}
-            self._entries = entries if isinstance(entries, dict) else {}
+            self._entries = entries if version == POSE_ANALYSIS_CACHE_VERSION and isinstance(entries, dict) else {}
         except (OSError, ValueError, TypeError):
             self._entries = {}
 
     def _save(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = {"version": 1, "entries": self._entries}
+        payload = {"version": POSE_ANALYSIS_CACHE_VERSION, "entries": self._entries}
         temporary = self.path.with_suffix(".tmp")
         temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(self.path)
@@ -226,6 +228,7 @@ class PoseLibraryIndex:
                     analysis = self._normalize(await self.analyzer.analyze_pose_metadata(image))
                     self._entries[key] = {
                         "sha256": digest,
+                        "analysis_version": POSE_ANALYSIS_CACHE_VERSION,
                         "analysis_source": self._key(depth_path),
                         "analyzed_at": datetime.now(timezone.utc).isoformat(),
                         "analysis": analysis,
