@@ -29,6 +29,19 @@ class PromptOrderTest(unittest.TestCase):
         self.assertEqual(result.count("long bob haircut"), 1)
         self.assertLess(result.index("sports hall"), result.index("very thin"))
 
+    def test_pose_prompt_locks_natural_head_to_body_proportion(self):
+        service = PromptService(FakeEnhancer())
+        result = asyncio.run(service.build_image_prompt(ImagePromptContext(
+            character_description="adult woman",
+            scene="in a studio",
+            pose="seated pose",
+        ))).positive
+        self.assertIn("natural adult head-to-body proportion", result)
+        self.assertIn("approximately 8 percent smaller", result)
+        self.assertIn("do not enlarge the head relative to the body", result)
+        self.assertIn("exactly two arms", result)
+        self.assertIn("one continuous anatomically connected body", result)
+
 
 if __name__ == "__main__":
     unittest.main()

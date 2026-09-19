@@ -3,14 +3,40 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from images.provider.comfyui import ComfyUIImageGenerator
 from videos.provider.comfyui import ComfyUIVideoGenerator
 
 
 class Character:
     id = 1
+    consistency_strength = "medium"
 
 
 class VideoProviderWorkflowTest(unittest.TestCase):
+    def test_pose_generation_uses_reduced_face_ipadapter_weight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workflow = {
+                "1": {"class_type": "CheckpointLoaderSimple", "inputs": {}},
+                "2": {"class_type": "CLIPTextEncode", "inputs": {"text": "old"}},
+                "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "old"}},
+                "8": {"class_type": "LoadImage", "inputs": {}},
+                "9": {"class_type": "IPAdapterAdvanced", "inputs": {"weight": 0.50}},
+                "10": {"class_type": "LoadImage", "inputs": {}},
+                "11": {"class_type": "ControlNetLoader", "inputs": {}},
+                "12": {"class_type": "ControlNetApplyAdvanced", "inputs": {}},
+                "16": {"class_type": "EmptyLatentImage", "inputs": {}},
+                "17": {"class_type": "KSampler", "inputs": {}},
+            }
+            path = Path(tmp) / "pose.json"
+            path.write_text(json.dumps(workflow), encoding="utf-8")
+            provider = ComfyUIImageGenerator(
+                base_url="http://127.0.0.1:8188", workflow_path=str(path),
+                input_path=str(Path(tmp) / "input"), timeout=1, poll_interval=0.1,
+            )
+            result = provider._prepare_workflow(Character(), "prompt", None, pose_image=b"pose")
+            self.assertEqual(result["9"]["inputs"]["weight"], 0.15)
+            self.assertEqual(result["9"]["inputs"]["end_at"], 0.15)
+
     def test_provider_prepares_raw_ltxv_without_reactor(self):
         with tempfile.TemporaryDirectory() as tmp:
             workflow = {

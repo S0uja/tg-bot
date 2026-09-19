@@ -39,7 +39,7 @@
   },
   "7": {
     "inputs": {
-      "text": "two people, multiple people, three people, duplicate person, duplicate body, clone, twin, second person, background person, reflection person, multiple views, triptych, collage, split screen, three-panel image, headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, extra head, extra face, extra limbs, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body",
+      "text": "two people, multiple people, three people, duplicate person, duplicate body, clone, twin, second person, background person, reflection person, multiple views, triptych, collage, split screen, three-panel image, headless, missing head, cropped head, cut off head, no face, missing face, deformed face, faceless, extra head, extra face, oversized head, enlarged head, big head, giant head, childlike head-to-body proportion, doll-like proportions, extra limbs, extra arms, extra legs, extra hands, extra feet, third arm, third leg, duplicate limb, duplicate arms, duplicate legs, disconnected limb, fused limb, bad anatomy, bad hands, fused fingers, missing fingers, lowres, blurry, cropped, worst quality, low quality, jpeg artifacts, watermark, depth-map body, mannequin body, overly muscular body",
       "clip": ["1", 1]
     },
     "class_type": "CLIPTextEncode"
@@ -50,11 +50,11 @@
   },
   "9": {
     "inputs": {
-      "weight": 0.50,
+      "weight": 0.15,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0.0,
-      "end_at": 0.65,
+      "end_at": 0.15,
       "embeds_scaling": "V only",
       "model": ["5", 0],
       "ipadapter": ["3", 0],

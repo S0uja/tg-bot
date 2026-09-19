@@ -13,6 +13,7 @@ from main.infrastructure.database.repositories.generations import GenerationRepo
 from main.infrastructure.storage.base import MediaStorage
 from main.prompts.service import PromptService, HAIRSTYLE_PROMPTS, HAIR_COLOR_PROMPTS
 from poses.config import normalize_pose_image, poses_root, media_root, pose_category_root, resolve_pose
+from poses.library import PoseLibraryIndex, ProgressCallback
 from poses.orientation import PoseOrientationCache
 
 
@@ -53,6 +54,7 @@ class ImageGenerationService:
         self.body_reference_workflow_path = body_reference_workflow_path
         self.video_start_frame_workflow_path = video_start_frame_workflow_path
         self.pose_orientation_cache = PoseOrientationCache(media_root(), prompt_service.enhancer)
+        self.pose_library = PoseLibraryIndex(poses_root(), prompt_service.enhancer)
 
     async def generate(self, user_id: int, character_id: int, scene: str, pose: str = "", clothing: str = "", pose_reference_image: bytes | None = None, pose_reference_path: Path | None = None, orientation_reference_image: bytes | None = None, orientation_reference_path: Path | None = None, pose_visual_reference_image: bytes | None = None, depth_reference_image: bytes | None = None, depth_reference_path: Path | None = None, depth_strength: float | None = None, generation_seed: int | None = None) -> tuple[Character, bytes, int]:
         character = await self.characters.get(user_id, character_id)
@@ -130,7 +132,7 @@ class ImageGenerationService:
             prompt_logger.info("[POSITIVE]\n%s", effective_prompt or "<empty>")
             prompt_logger.info("[PROFILE] character_id=%s weight=%s bust=%s age=%s hairstyle=%s hair_color=%s consistency=%s pose=%s clothing=%s", character.id, character.weight_profile, character.bust_size, character.age_category, character.hairstyle, character.hair_color, character.consistency_strength, pose, clothing)
             prompt_logger.info("========== END IMAGE GENERATION PROMPT ==========")
-            result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else (0.15 if pose_category == "reference" else None)) if use_pose_workflow else None, generation_seed=generation_seed, generation_size=(512, 768) if use_pose_workflow and pose_category == "reference" else None)
+            result = await self.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face_bytes, body_reference_image=body_reference, workflow_path=self.video_start_frame_workflow_path if use_pose_workflow else (self.body_reference_workflow_path if body_reference and self.body_reference_workflow_path else None), pose_image=pose_image if use_pose_workflow else None, pose_visual_reference_image=orientation_reference_image if use_pose_workflow and pose_visual_reference_image is None else pose_visual_reference_image, depth_image=depth_reference_image if use_pose_workflow else None, depth_strength=(depth_strength if depth_strength is not None else 0.05) if use_pose_workflow else None, generation_seed=generation_seed, generation_size=(512, 768) if use_pose_workflow and pose_category == "reference" else None, pose_body_ipadapter_weight=0.15 if use_pose_workflow and body_reference is not None else None, pose_body_ipadapter_end=0.15 if use_pose_workflow and body_reference is not None else None, pose_openpose_strength=0.8 if use_pose_workflow else None)
             if face_bytes and pose_face_visible:
                 result = await self.image_provider.reface(image=result, face_reference=face_bytes)
             result_path = await self.storage.save(result, f"generation_{generation_id}.png")
@@ -156,3 +158,9 @@ class ImageGenerationService:
     async def analyze_all_pose_orientations(self) -> tuple[int, int]:
         """Analyze all pose references once and persist their orientation cache."""
         return await self.pose_orientation_cache.ensure_all()
+
+    async def analyze_all_poses(
+        self, on_progress: ProgressCallback | None = None,
+    ) -> tuple[int, int, list[str]]:
+        """Build or incrementally update the persistent pose metadata index."""
+        return await self.pose_library.analyze_all(on_progress)

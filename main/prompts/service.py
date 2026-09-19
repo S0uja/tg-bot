@@ -102,6 +102,12 @@ class PromptService:
                 "follow the provided OpenPose for the overall body posture and limb arrangement, "
                 "preserve the general pelvis, knee, lower-leg, and foot placement, "
                 "while adapting naturally to the character's body shape, proportions, and anatomy; "
+                "(natural adult head-to-body proportion:1.35), "
+                "(proportionate head size relative to the shoulders and torso:1.3), "
+                "(slightly reduced head scale relative to the body, approximately 8 percent smaller:1.2), "
+                "do not enlarge the head relative to the body; "
+                "exactly two arms, exactly two legs, exactly two hands, exactly two feet; "
+                "one continuous anatomically connected body with no duplicate or extra limbs; "
                 "keep all limbs anatomically connected and naturally proportioned, "
                 "do not force the body into impossible joint angles or distort limb lengths"
             )

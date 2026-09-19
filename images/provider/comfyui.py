@@ -96,6 +96,11 @@ class ComfyUIImageGenerator:
             negative_node = clip_nodes[1] if len(clip_nodes) > 1 else None
         if isinstance(negative_node, dict) and isinstance(negative_node.get("inputs"), dict):
             negative = str(negative_node["inputs"].get("text", ""))
+            # OpenPose prescribes the skeleton but not a reliable photographic
+            # head scale.  Face conditioning can otherwise bias SD 1.5 toward a
+            # doll-like, oversized head in pose-driven full-body shots.
+            if pose_image is not None:
+                negative += ", oversized head, enlarged head, big head, giant head, childlike head-to-body proportion, doll-like proportions, extra limbs, extra arms, extra legs, extra hands, extra feet, third arm, third leg, duplicate limb, duplicate arms, duplicate legs, disconnected limb, fused limb"
             if character.weight_profile == "Очень худая":
                 negative += ", curvy body, curvy figure, plus-size body, fuller body, wide hips, wide waist, thick thighs, full thighs, full abdomen, rounded hips, fuller arms, heavy body, substantial body mass, large body volume, voluptuous body, hourglass figure"
             elif character.weight_profile == "Толстая":
@@ -140,6 +145,19 @@ class ComfyUIImageGenerator:
 
         if pose_image is not None:
             self.input_path.mkdir(parents=True, exist_ok=True)
+            # The normal 0.50 portrait-reference weight is useful for regular
+            # images, but it makes a pose-driven full-body composition inherit
+            # the portrait crop's face scale.  Keep it at 0.15 for only the
+            # earliest denoising stage; ReActor applies the exact face afterward.
+            face_ipadapter = workflow.get("9")
+            if isinstance(face_ipadapter, dict) and face_ipadapter.get("class_type") == "IPAdapterAdvanced":
+                face_inputs = face_ipadapter.setdefault("inputs", {})
+                face_inputs["weight"] = 0.15
+                face_inputs["start_at"] = 0.0
+                face_inputs["end_at"] = 0.15
+                self.logger.info("[POSE FACE IPADAPTER] weight=0.15 end=0.15 (final identity is preserved by ReActor).")
+            else:
+                raise ProviderError("В start-frame workflow отсутствует Face IPAdapterAdvanced node 9.")
             pose_filename = f"telegram_pose_control_{uuid.uuid4().hex}.png"
             pose_path = self.input_path / pose_filename
             pose_path.write_bytes(pose_image)

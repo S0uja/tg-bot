@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-import json
 import re
-import uuid
 
 from aiogram import F, Router, types
 from aiogram.filters import Command
@@ -69,17 +67,6 @@ def _variant_character(character: Character, parameter: str, value) -> Character
     return Character(id=character.id, user_id=character.user_id, name=character.name, face_file_id=character.face_file_id, description=character.description, created_at=character.created_at, updated_at=character.updated_at, body_reference_file_id=None, weight=character.weight, bust=character.bust, age=character.age, weight_profile=data["weight_profile"], body_shape=character.body_shape, bust_size=data["bust_size"], bust_shape=character.bust_shape, age_category=data["age_category"], hairstyle=data["hairstyle"], hair_color=data["hair_color"], consistency_strength=data["consistency_strength"])
 
 
-def _make_face_weight_workflow(source_path: Path, face_weight: float) -> Path:
-    workflow = json.loads(source_path.read_text(encoding="utf-8"))
-    face_node = workflow.get("9")
-    if not isinstance(face_node, dict) or face_node.get("class_type") != "IPAdapterAdvanced":
-        raise ProviderError("В start-frame workflow отсутствует Face IPAdapterAdvanced node 9.")
-    face_node.setdefault("inputs", {})["weight"] = float(face_weight)
-    output_path = source_path.parent / f".face_weight_test_{face_weight:.2f}_{uuid.uuid4().hex}.json"
-    output_path.write_text(json.dumps(workflow, ensure_ascii=False, indent=2), encoding="utf-8")
-    return output_path
-
-
 async def _run_test(message: types.Message, ctx: TelegramContext, parameter: str) -> None:
     character_service, image_service = ctx.character_service, ctx.image_service
     items = await character_service.list(message.from_user.id)
@@ -135,38 +122,28 @@ async def _run_pose_folder_test(message: types.Message, ctx: TelegramContext, fo
     character = max(items, key=lambda item: item.id); face = await ctx.character_service.read_face(character.face_file_id); image_service = ctx.image_service
     if not image_service.video_start_frame_workflow_path: raise ProviderError("Не настроен Reference/start-frame workflow.")
     seed_base = (2100000000 + int(character.id)) % (2**32)
-    base_workflow_path = Path(image_service.video_start_frame_workflow_path)
-    if not base_workflow_path.is_file(): raise ProviderError(f"Не найден workflow: {base_workflow_path}")
-    progress = await message.answer(f"🧪 <b>Тест лица: {folder_name}</b>\nНайдено поз: {len(pairs)}\nГенерация 0 из {len(pairs)}", parse_mode="HTML")
-    variants = (("A", 0.50), ("B", 0.35))
+    progress = await message.answer(f"🧪 <b>Тест поз: {folder_name}</b>\nНайдено поз: {len(pairs)}\nГенерация 0 из {len(pairs)}", parse_mode="HTML")
     for index, (bone_path, depth_path, stem) in enumerate(pairs, 1):
-        try: await progress.edit_text(f"🧪 <b>Тест лица: {folder_name}</b>\nПоза {index} из {len(pairs)}: <code>{stem}</code>\nГенерации: Face A/B", parse_mode="HTML")
+        try: await progress.edit_text(f"🧪 <b>Тест поз: {folder_name}</b>\nПоза {index} из {len(pairs)}: <code>{stem}</code>\nГенерация 1 из 1", parse_mode="HTML")
         except Exception: pass
         try:
             generation_size = _pose_generation_size(bone_path)
         except ProviderError as exc:
             await message.answer(f"❌ <code>{stem}</code>: {exc}", parse_mode="HTML")
             continue
-        for variant_name, face_weight in variants:
-            temp_workflow = None
-            try:
-                temp_workflow = _make_face_weight_workflow(base_workflow_path, face_weight)
-                context = ImagePromptContext(character_description=character.description, scene=SCENE, pose=folder_name, clothing="", weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength)
-                prompt = await image_service.prompt_service.build_image_prompt(context)
-                effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, one face only, exactly two arms, exactly two legs, exactly two hands, exactly two feet, one continuous anatomically connected body, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
-                result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=str(temp_workflow), pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.05, generation_size=generation_size, generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.35, pose_openpose_strength=0.8)
-                if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
-                await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}_face_{variant_name}.png"), caption=f"🧪 Результат {variant_name}: Face IPAdapter {face_weight:.2f}\nBody IPAdapter 0.15 → 0.35\nOpenPose 0.8\nDepth 0.05\nCanvas {generation_size[0]}x{generation_size[1]}\n{stem}")])
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить позу", callback_data=f"testpose_delete:{folder_name}:{stem}")]])
-                await message.answer("Управление позой:", reply_markup=keyboard)
-            except Exception as exc: await message.answer(f"❌ <code>{stem} [Face {face_weight:.2f}]</code>: {exc}", parse_mode="HTML")
-            finally:
-                if temp_workflow is not None:
-                    try: temp_workflow.unlink(missing_ok=True)
-                    except Exception: pass
+        try:
+            context = ImagePromptContext(character_description=character.description, scene=SCENE, pose=folder_name, clothing="", weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength)
+            prompt = await image_service.prompt_service.build_image_prompt(context)
+            effective_prompt = f"{prompt.positive}, exactly one adult woman, one single person only, one body only, one head only, one face only, exactly two arms, exactly two legs, exactly two hands, exactly two feet, one continuous anatomically connected body, complete head and face, head fully inside frame, full body, single view, no triptych, no collage, do not reproduce multiple reference views"
+            result = await image_service.image_provider.generate(character=character, prompt=effective_prompt, reference_image=face, body_reference_image=face, workflow_path=image_service.video_start_frame_workflow_path, pose_image=bone_path.read_bytes(), depth_image=depth_path.read_bytes(), depth_strength=0.05, generation_size=generation_size, generation_seed=(seed_base + index) % (2**32), pose_body_ipadapter_weight=0.15, pose_body_ipadapter_end=0.15, pose_openpose_strength=0.8)
+            if face: result = await image_service.image_provider.reface(image=result, face_reference=face)
+            await message.answer_media_group([types.InputMediaPhoto(media=types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name), caption=f"🗺 Depth: {stem}"), types.InputMediaPhoto(media=types.BufferedInputFile(result, filename=f"{stem}.png"), caption=f"🧪 Результат\nFace IPAdapter 0.15\nBody IPAdapter 0.15\nOpenPose 0.8\nDepth 0.05\nCanvas {generation_size[0]}x{generation_size[1]}\n{stem}")])
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить позу", callback_data=f"testpose_delete:{folder_name}:{stem}")]])
+            await message.answer("Управление позой:", reply_markup=keyboard)
+        except Exception as exc: await message.answer(f"❌ <code>{stem}</code>: {exc}", parse_mode="HTML")
     try: await progress.delete()
     except Exception: pass
-    await message.answer(f"✅ <b>Тест лица завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nСравнение Face IPAdapter: A=0.50 / B=0.35\nBody IPAdapter: 0.15→0.35\nOpenPose: 0.8\nDepth: 0.05\nРазмер каждого canvas берётся из OpenPose: 512x768 или 768x512", parse_mode="HTML")
+    await message.answer(f"✅ <b>Тест поз завершён</b>\nПапка: <code>{folder_name}</code>\nПоз: {len(pairs)}\nFace IPAdapter: 0.15\nBody IPAdapter: 0.15\nOpenPose: 0.8\nDepth: 0.05\nРазмер каждого canvas берётся из OpenPose: 512x768 или 768x512", parse_mode="HTML")
 
 
 async def _delete_pose_pair(callback: types.CallbackQuery, folder_name: str, stem: str) -> None:

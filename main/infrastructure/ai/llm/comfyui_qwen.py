@@ -54,6 +54,23 @@ Do not infer orientation from the filename or folder name.
 Do not describe the pose, clothing, attractiveness, identity, ethnicity, age, or other traits.
 """
 
+POSE_METADATA_SYSTEM = """Analyze this image only as a reusable human-pose reference for image generation. It may be an OpenPose skeleton instead of a photograph; infer only the visible body geometry. Return ONLY valid JSON; do not identify the person or describe face, attractiveness, ethnicity, age, body shape, nudity, clothing details, background, or private traits.
+
+JSON schema:
+{
+  "posture": "standing|sitting|lying|kneeling|all_fours|crouching|bent_over|unknown",
+  "orientation": "front|back|left_side|right_side|three_quarter_front|three_quarter_back|unknown",
+  "activity_tags": ["short English action or use tag, maximum 6"],
+  "support": ["floor|bed|chair|wall|hands|knees|back|feet|unknown"],
+  "arms": "brief factual arrangement, or unknown",
+  "legs": "brief factual arrangement, or unknown",
+  "framing": "full_body|upper_body|lower_body|partial|unknown",
+  "keywords_ru": ["short Russian search tags, maximum 10"],
+  "confidence": 0.0
+}
+
+Rules: describe only clearly visible pose geometry and physical action. Use unknown when uncertain. activity_tags and keywords_ru must be concise, lowercase, unique, and useful for matching a future request such as 'упражнение на полу'."""
+
 CAMERA_STATIC_SUFFIX = "camera completely static and locked in place, fixed camera position, fixed focal length, fixed perspective, unchanged framing from frame 0, unchanged aspect ratio and orientation, no zoom in, no zoom out, no dolly, no tracking, no pan, no tilt, no reframing, no camera angle change, no shot scale change, no crop change, preserve the background position relative to the frame, only the requested subject action changes"
 MOTION_SUFFIX = "clear and noticeable physical movement, visible beginning-to-end action, natural body displacement matching the requested action, complete the requested motion rather than only starting it"
 CONTINUITY_SUFFIX = "exact same face as the first frame, same facial identity, same facial proportions, preserve facial identity throughout the entire video, consistent natural skin tone throughout the entire video, consistent face appearance"
@@ -309,6 +326,17 @@ class ComfyUIQwenLLM:
                     pass
         raise ProviderError(f"Qwen не вернул корректный анализ ориентации позы: {text[:300]}")
 
+    async def analyze_pose_metadata(self, image: bytes) -> dict:
+        text = await self._run(
+            POSE_METADATA_SYSTEM,
+            image,
+            self.vision_workflow_path,
+            preset_prompt="🖼️ Detailed Description",
+            max_tokens=384,
+        )
+        from characters.analysis import extract_json_object
+        return extract_json_object(text)
+
     async def enhance_image_prompt(self, context: ImagePromptContext) -> str:
         parts = [f"USER IMAGE REQUEST: {context.scene.strip()}"]
         if context.pose.strip(): parts.append(f"STRUCTURED POSE CONSTRAINT: {context.pose.strip()}")
@@ -329,4 +357,3 @@ class ComfyUIQwenLLM:
         if not _explicit_camera_motion_requested(prompt) and CAMERA_STATIC_SUFFIX.lower() not in text.lower():
             text = f"{text}, {CAMERA_STATIC_SUFFIX}"
         return text[:1400].rsplit(".", 1)[0].strip() if len(text) > 1400 else text
-

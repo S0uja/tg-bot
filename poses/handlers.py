@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 import asyncio
+from html import escape
 import json
 import random
 import secrets
@@ -54,32 +55,48 @@ def register(router: Router, ctx: TelegramContext) -> None:
 
 
     @router.message(Command("analyze_poses"))
-
-    
-
-
     async def analyze_poses(message: types.Message, state: FSMContext):
-        """Pre-analyze every pose image and persist camera-orientation metadata."""
-        if not settings.test_poses_enabled:
-            await message.answer(
-                "❌ Анализ поз отключён вместе с /test_poses "
-                "(TEST_POSES_ENABLED=false)."
-            )
-            return
-
+        """Build an incremental, persistent semantic index for pose originals."""
         root_dir = poses_root().resolve()
         progress = await message.answer(
-            "🔎 <b>Анализирую ориентацию всех поз…</b>\n"
-            "Новые и изменённые изображения будут добавлены в кеш.",
+            "🔎 <b>Анализирую библиотеку поз…</b>\n"
+            "Новые и изменённые изображения будут добавлены в индекс; "
+            "уже проанализированные файлы пропускаются.",
             parse_mode="HTML",
         )
+
+        async def update_progress(
+            current: int, total: int, analyzed: int, cached: int, key: str,
+        ) -> None:
+            # Avoid flooding Telegram while still keeping large imports visible.
+            if current != total and current % 3:
+                return
+            try:
+                await progress.edit_text(
+                    "🔎 <b>Анализирую библиотеку поз…</b>\n\n"
+                    f"Обработано: <b>{current}/{total}</b>\n"
+                    f"Новых/изменённых: <b>{analyzed}</b>\n"
+                    f"Из кеша: <b>{cached}</b>\n"
+                    f"Текущий файл: <code>{escape(key)}</code>",
+                    parse_mode="HTML",
+                )
+            except TelegramBadRequest:
+                pass
+
         try:
-            analyzed, cached = await image_service.analyze_all_pose_orientations()
+            analyzed, cached, failures = await image_service.analyze_all_poses(
+                update_progress
+            )
+            failures_text = (
+                f"\nОшибок: <b>{len(failures)}</b>"
+                if failures else ""
+            )
             text = (
-                "✅ <b>Анализ поз завершён.</b>\n\n"
+                "✅ <b>Индекс поз обновлён.</b>\n\n"
                 f"Новых/изменённых: <b>{analyzed}</b>\n"
                 f"Уже было в кеше: <b>{cached}</b>\n"
-                f"Кеш: <code>{root_dir / '.pose_orientation_cache.json'}</code>"
+                f"Индекс: <code>{root_dir / '.pose_library.json'}</code>"
+                f"{failures_text}"
             )
             await progress.edit_text(text, parse_mode="HTML")
         except Exception as exc:
