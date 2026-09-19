@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 import asyncio
+import io
 from html import escape
 import json
 import random
@@ -670,6 +671,40 @@ def register(router: Router, ctx: TelegramContext) -> None:
             types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name),
             caption=f"🧩 Выбранная поза — только Depth\n{relative_depth}",
         )
+
+    @router.message(F.photo, F.caption.regexp(r"^/test_pose_analysis(?:@\\w+)?(?:\\s+.*)?$"))
+    async def test_pose_analysis(message: types.Message):
+        """Analyze exactly the photo attached to /test_pose_analysis."""
+        if not message.photo:
+            await message.answer("❌ Прикрепите Depth-карту вместе с командой /test_pose_analysis.")
+            return
+
+        try:
+            buffer = io.BytesIO()
+            await message.bot.download(message.photo[-1], destination=buffer)
+            image = buffer.getvalue()
+            if not image:
+                raise RuntimeError("Telegram не вернул данные изображения.")
+
+            enhancer = image_service.prompt_service.enhancer
+            metadata = await enhancer.analyze_pose_metadata(image)
+            normalized = image_service.pose_library._normalize(metadata)
+
+            await message.answer(
+                "<b>🧪 Pose Analysis — именно это изображение</b>\\n\\n"
+                f"<code>{escape(json.dumps(normalized, ensure_ascii=False, indent=2))}</code>",
+                parse_mode="HTML",
+            )
+            await message.answer_photo(
+                message.photo[-1].file_id,
+                caption="🔎 Анализ выполнен напрямую по прикреплённой картинке, без кеша и без выбора другой позы.",
+            )
+        except Exception as exc:
+            await message.answer(
+                f"❌ Ошибка анализа: <code>{escape(str(exc))}</code>",
+                parse_mode="HTML",
+            )
+
 
     @router.callback_query(F.data.startswith("pose_delete:"))
     async def delete_test_pose(callback: types.CallbackQuery):
