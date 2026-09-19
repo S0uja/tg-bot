@@ -13,7 +13,7 @@ PRESERVED_METADATA_FILES = {CACHE_FILENAME, ".pose_orientation_cache.json"}
 POSTURES = {"standing", "sitting", "lying", "kneeling", "all_fours", "crouching", "bent_over", "unknown"}
 ORIENTATIONS = {"front", "back", "left_side", "right_side", "three_quarter_front", "three_quarter_back", "unknown"}
 FRAMINGS = {"full_body", "upper_body", "lower_body", "partial", "unknown"}
-POSE_ANALYSIS_CACHE_VERSION = 2
+POSE_ANALYSIS_CACHE_VERSION = 3
 
 ProgressCallback = Callable[[int, int, int, int, str], Awaitable[None]]
 
