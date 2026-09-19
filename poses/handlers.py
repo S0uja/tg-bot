@@ -56,53 +56,73 @@ def register(router: Router, ctx: TelegramContext) -> None:
 
     @router.message(Command("analyze_poses"))
     async def analyze_poses(message: types.Message, state: FSMContext):
-        """Build an incremental, persistent semantic index for pose originals."""
+        """Clean the pose library and build/update its semantic index from Depth maps."""
         root_dir = poses_root().resolve()
+
+        # Send this BEFORE any filesystem work so the user immediately sees that
+        # Telegram accepted the command.
         progress = await message.answer(
-            "🔎 <b>Анализирую библиотеку поз…</b>\n"
-            "Новые и изменённые изображения будут добавлены в индекс; "
-            "уже проанализированные файлы пропускаются.",
+            "🚀 <b>АНАЛИЗ ПОЗ НАЧАЛСЯ</b>\n\n"
+            "🧹 Сначала очищаю библиотеку поз.\n"
+            "🤖 Затем ИИ будет анализировать <b>_depth.png</b>.\n"
+            "⏳ Уже проанализированные Depth-карты будут взяты из кеша.",
             parse_mode="HTML",
         )
 
-        async def update_progress(
-            current: int, total: int, analyzed: int, cached: int, key: str,
-        ) -> None:
-            # Avoid flooding Telegram while still keeping large imports visible.
-            if current != total and current % 3:
-                return
+        try:
+            cleanup = image_service.pose_library.cleanup_pairs()
             try:
                 await progress.edit_text(
-                    "🔎 <b>Анализирую библиотеку поз…</b>\n\n"
-                    f"Обработано: <b>{current}/{total}</b>\n"
-                    f"Новых/изменённых: <b>{analyzed}</b>\n"
-                    f"Из кеша: <b>{cached}</b>\n"
-                    f"Текущий файл: <code>{escape(key)}</code>",
+                    "🚀 <b>АНАЛИЗ ПОЗ ИДЁТ</b>\n\n"
+                    f"🧹 Валидных пар: <b>{cleanup.valid_pairs}</b>\n"
+                    f"🗑 Удалено лишних файлов: <b>{cleanup.deleted_files}</b>\n"
+                    f"⚠️ Неполных наборов: <b>{cleanup.incomplete_sets}</b>\n\n"
+                    "🤖 Анализирую <b>_depth.png</b>…",
                     parse_mode="HTML",
                 )
             except TelegramBadRequest:
                 pass
 
-        try:
+            async def update_progress(
+                current: int, total: int, analyzed: int, cached: int, key: str,
+            ) -> None:
+                if current != total and current % 3:
+                    return
+                try:
+                    await progress.edit_text(
+                        "🚀 <b>АНАЛИЗ ПОЗ ИДЁТ</b>\n\n"
+                        f"Обработано: <b>{current}/{total}</b>\n"
+                        f"Новых/изменённых: <b>{analyzed}</b>\n"
+                        f"Из кеша: <b>{cached}</b>\n"
+                        "Источник анализа: <b>_depth.png</b>\n"
+                        f"Текущий набор: <code>{escape(key)}</code>",
+                        parse_mode="HTML",
+                    )
+                except TelegramBadRequest:
+                    pass
+
             analyzed, cached, failures = await image_service.analyze_all_poses(
                 update_progress
             )
-            failures_text = (
-                f"\nОшибок: <b>{len(failures)}</b>"
-                if failures else ""
-            )
+            failures_text = f"\n⚠️ Ошибок: <b>{len(failures)}</b>" if failures else ""
             text = (
-                "✅ <b>Индекс поз обновлён.</b>\n\n"
+                "✅ <b>АНАЛИЗ ПОЗ ЗАВЕРШЁН</b>\n\n"
+                f"Валидных пар: <b>{cleanup.valid_pairs}</b>\n"
                 f"Новых/изменённых: <b>{analyzed}</b>\n"
-                f"Уже было в кеше: <b>{cached}</b>\n"
-                f"Индекс: <code>{root_dir / '.pose_library.json'}</code>"
+                f"Из кеша: <b>{cached}</b>\n"
+                f"Удалено файлов: <b>{cleanup.deleted_files}</b>\n"
+                "Источник анализа: <b>_depth.png</b>"
                 f"{failures_text}"
             )
             await progress.edit_text(text, parse_mode="HTML")
         except Exception as exc:
-            await progress.edit_text(
-                f"❌ Не удалось проанализировать позы: {exc}"
-            )
+            try:
+                await progress.edit_text(
+                    f"❌ <b>АНАЛИЗ ПОЗ ОСТАНОВЛЕН</b>\n\n<code>{escape(str(exc))}</code>",
+                    parse_mode="HTML",
+                )
+            except TelegramBadRequest:
+                await message.answer(f"❌ Не удалось проанализировать позы: {exc}")
 
 
 
