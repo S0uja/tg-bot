@@ -108,7 +108,8 @@ class ImageGenerationService:
                     expected_dir = pose_category_root(pose_category or pose or "...")
                     raise ProviderError(f"Не найдена картинка позы '{pose}' в {expected_dir}.")
                 logging.getLogger("image_generation").info("[IMAGE POSE] selected category=%s path=%s orientation=%s face_visible=%s bytes=%d depth=%s", pose_category, selected_pose_path, pose_orientation, pose_face_visible, len(pose_image), depth_reference_path)
-            prompt = await self.prompt_service.build_image_prompt(ImagePromptContext(character_description=character.description, scene=scene, pose=pose, clothing=clothing, weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength, pose_orientation=pose_orientation))
+            pose_metadata = self.pose_library.get_analysis(selected_pose_path) if selected_pose_path is not None else None
+            prompt = await self.prompt_service.build_image_prompt(ImagePromptContext(character_description=character.description, scene=scene, pose=pose, clothing=clothing, weight_profile=character.weight_profile, bust_size=character.bust_size, age_category=character.age_category, hairstyle=character.hairstyle, hair_color=character.hair_color, consistency_strength=character.consistency_strength, pose_orientation=pose_orientation, pose_metadata=pose_metadata))
             face_bytes = await self.storage.read(character.face_file_id) if character.face_file_id else None
             body_reference = None
             if character.body_reference_file_id:
