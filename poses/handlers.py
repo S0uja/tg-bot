@@ -18,6 +18,7 @@ from images.service import ImageGenerationService
 from videos.service import VideoGenerationService
 from poses.config import poses_root, normalize_pose_image
 from main.domain.errors import AppError
+from main.domain.models import ImagePromptContext
 from chat.keyboards import EXIT_CHAT_TEXT, chat_keyboard
 from characters.keyboards import (
     HAIR_COLOR_OPTIONS, HAIRSTYLE_OPTIONS, age_category_choices, bust_size_choices,
@@ -517,6 +518,371 @@ def register(router: Router, ctx: TelegramContext) -> None:
             )
         else:
             await progress.edit_text("❌ Не удалось получить ни одного результата.")
+
+    @router.message(CharacterChat.active, Command("test_prompt_builder"))
+    async def test_prompt_builder(message: types.Message, state: FSMContext):
+        """Build and show a prompt using one randomly selected Depth pose only."""
+        raw = (message.text or "").strip()
+        match = re.match(r'^/test_prompt_builder(?:@\w+)?(?:\s+(.+?))?\s*
+    async def delete_test_pose(callback: types.CallbackQuery):
+        """Delete one pose set: original + OpenPose + Depth."""
+        token = (callback.data or "").split(":", 1)[1]
+        record = pose_delete_tokens.get(token)
+        if record is None:
+            await callback.answer("Кнопка устарела.", show_alert=True)
+            return
+
+        owner_id, original_file = record
+        if callback.from_user.id != owner_id:
+            await callback.answer("Эта кнопка принадлежит другому пользователю.", show_alert=True)
+            return
+
+        root_dir = poses_root().resolve()
+        try:
+            original_path = original_file.resolve()
+            original_path.relative_to(root_dir)
+        except (ValueError, OSError):
+            pose_delete_tokens.pop(token, None)
+            await callback.answer("Недопустимый путь к позе.", show_alert=True)
+            return
+
+        skeleton = original_path.with_name(
+            original_path.stem + "_noise_final_openpose.png"
+        )
+        depth = original_path.with_name(
+            original_path.stem + "_depth.png"
+        )
+
+        deleted = []
+        for path in (original_path, skeleton, depth):
+            try:
+                if path.is_file():
+                    path.unlink()
+                    deleted.append(path.name)
+            except OSError as exc:
+                await callback.answer(
+                    f"Не удалось удалить {path.name}: {exc}",
+                    show_alert=True,
+                )
+                return
+
+        pose_delete_tokens.pop(token, None)
+
+        try:
+            await callback.message.edit_text(
+                "🗑 <b>Поза удалена</b>\n"
+                f"Удалено файлов: <b>{len(deleted)}/3</b>\n"
+                + ("\n".join(f"• {name}" for name in deleted) if deleted else "Файлы уже отсутствовали."),
+                parse_mode="HTML",
+            )
+        except TelegramBadRequest:
+            pass
+        await callback.answer("Поза удалена.")
+
+    @router.message(CharacterChat.active, Command("test_poses"))
+    async def test_poses(message: types.Message, state: FSMContext):
+        """Generate one image for every pose reference in a named pose folder."""
+        if not settings.test_poses_enabled:
+            await message.answer(
+                "❌ Функция /test_poses отключена в .env "
+                "(TEST_POSES_ENABLED=false)."
+            )
+            return
+
+        data = await state.get_data()
+        character_id = data.get("character_id")
+        if not character_id:
+            await message.answer("❌ Сначала откройте чат с персонажем.")
+            return
+
+        raw = (message.text or "").strip()
+        match = re.match(
+            r"^/test_poses(?:@\w+)?(?:\s+(.+?))?\s*$",
+            raw,
+            flags=re.I,
+        )
+        folder_arg = (match.group(1) if match else "").strip()
+        if (
+            len(folder_arg) >= 2
+            and folder_arg[0] in {'"', "'", "“", "«"}
+            and folder_arg[-1] in {'"', "'", "”", "»"}
+        ):
+            folder_arg = folder_arg[1:-1].strip()
+
+        if not folder_arg:
+            await message.answer(
+                '❌ Укажите папку с позами.\nПример: /test_poses "doggy"'
+            )
+            return
+
+        root_dir = poses_root().resolve()
+        requested = Path(folder_arg)
+        if requested.is_absolute():
+            await message.answer("❌ Можно указывать только папку внутри poses.")
+            return
+
+        pose_dir = (root_dir / requested).resolve()
+        try:
+            pose_dir.relative_to(root_dir)
+        except ValueError:
+            await message.answer("❌ Недопустимый путь к папке поз.")
+            return
+
+        if not pose_dir.is_dir():
+            await message.answer(f"❌ Папка поз не найдена: {folder_arg}")
+            return
+
+        exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        original_files = sorted(
+            (
+                p for p in pose_dir.rglob("*")
+                if p.is_file()
+                and p.suffix.lower() in exts
+                and not p.stem.lower().endswith("_noise_final_openpose")
+                and not p.stem.lower().endswith("_depth")
+            ),
+            key=lambda p: p.relative_to(pose_dir).as_posix().lower(),
+        )
+        if not original_files:
+            await message.answer(
+                f"❌ В папке «{folder_arg}» нет оригинальных изображений поз."
+            )
+            return
+
+        pose_pairs = []
+        missing_openpose = []
+        for original_file in original_files:
+            # One pose is a 3-file set:
+            #   original.ext
+            #   original_noise_final_openpose.png
+            #   original_depth.png
+            # Depth is optional for backward compatibility, but OpenPose is required.
+            skeleton = original_file.with_name(
+                original_file.stem + "_noise_final_openpose.png"
+            )
+            depth = original_file.with_name(
+                original_file.stem + "_depth.png"
+            )
+            if skeleton.is_file():
+                pose_pairs.append((original_file, skeleton, depth if depth.is_file() else None))
+            else:
+                missing_openpose.append(
+                    original_file.relative_to(pose_dir).as_posix()
+                )
+
+        if missing_openpose:
+            preview = "\n".join(f"• {name}" for name in missing_openpose[:10])
+            extra = "" if len(missing_openpose) <= 10 else f"\n… и ещё {len(missing_openpose)-10}"
+            await message.answer(
+                "❌ Для некоторых оригиналов не найден OpenPose-файл:\n"
+                f"{preview}{extra}\n\n"
+                "Ожидаемый формат: (1).jpg + (1)_noise_final_openpose.png + (1)_depth.png"
+            )
+            return
+
+        try:
+            character = await character_service.get(
+                message.from_user.id, int(character_id)
+            )
+        except AppError as exc:
+            await message.answer(f"❌ Не удалось загрузить персонажа: {exc}")
+            return
+
+        progress = await message.answer(
+            f"🧪 <b>Тест поз: {folder_arg}</b>\n\n"
+            f"Найдено пар: <b>{len(pose_pairs)}</b>\n"
+            "Генерирую по очереди…",
+            parse_mode="HTML",
+        )
+
+        current_scene = (data.get("current_scene") or "").strip()
+        scene = (
+            "Create a photorealistic image of the selected adult character using "
+            "the supplied pose reference as the exact body-position and camera-"
+            "orientation guide. Preserve the character identity, face, hair, body "
+            "proportions and natural realistic appearance. The pose reference is "
+            "authoritative for body position and subject orientation. Do not rotate "
+            "the subject toward the camera and do not invent a different pose."
+        )
+        if current_scene:
+            scene += (
+                f" Maintain compatible visual continuity with the current chat "
+                f"scene: {current_scene}"
+            )
+
+        sent = 0
+        failed = 0
+        for index, (original_file, pose_file, depth_file) in enumerate(pose_pairs, start=1):
+            try:
+                original_bytes = original_file.read_bytes()
+                pose_bytes = pose_file.read_bytes()
+                depth_bytes = depth_file.read_bytes() if depth_file is not None else None
+
+                character_result, result, generation_id = await image_service.generate(
+                    user_id=message.from_user.id,
+                    character_id=character.id,
+                    scene=scene,
+                    pose=folder_arg,
+                    pose_reference_image=pose_bytes,
+                    pose_reference_path=pose_file,
+                    orientation_reference_image=original_bytes,
+                    orientation_reference_path=original_file,
+                    depth_reference_image=depth_bytes,
+                    depth_reference_path=depth_file,
+                    depth_strength=0.35 if depth_bytes is not None else None,
+                )
+
+                # Read the orientation from the ORIGINAL image's cache entry.
+                orientation_info = await image_service.get_pose_orientation(
+                    original_file,
+                    original_bytes,
+                )
+                orientation_text = (
+                    "🤖 Анализ ИИ из кеша:\n"
+                    f"orientation: {orientation_info.get('orientation', 'unknown')}\n"
+                    f"face_visible: {str(bool(orientation_info.get('face_visible', False))).lower()}\n"
+                    f"confidence: {float(orientation_info.get('confidence', 0.0)):.2f}"
+                )
+
+                # Telegram album: show the REAL original pose, never the skeleton,
+                # followed by the generated result.
+                await message.answer_media_group(
+                    media=[
+                        types.InputMediaPhoto(
+                            media=types.BufferedInputFile(
+                                original_bytes,
+                                filename=f"pose_original_{index:03d}{original_file.suffix.lower()}",
+                            ),
+                            caption=(
+                                f"🧪 Поза {index}/{len(pose_pairs)} — {original_file.stem}\n"
+                                "⬅️ Оригинал позы\n\n"
+                                "➡️ Результат генерации\n\n"
+                                + orientation_text
+                            ),
+                        ),
+                        types.InputMediaPhoto(
+                            media=types.BufferedInputFile(
+                                result,
+                                filename=f"pose_result_{index:03d}.png",
+                            ),
+                        ),
+                    ]
+                )
+
+                # Inline keyboard must be sent as a separate message because
+                # Telegram media-group items cannot have inline keyboards.
+                token = secrets.token_urlsafe(6)
+                pose_delete_tokens[token] = (message.from_user.id, original_file)
+                # Keep the in-memory map bounded.
+                if len(pose_delete_tokens) > 1000:
+                    for stale in list(pose_delete_tokens)[:200]:
+                        pose_delete_tokens.pop(stale, None)
+
+                keyboard = types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text="🗑 Удалить эту позу",
+                                callback_data=f"pose_delete:{token}",
+                            )
+                        ]
+                    ]
+                )
+                await message.answer(
+                    f"Поза {index}: если результат не подходит, удалить все 3 файла:",
+                    reply_markup=keyboard,
+                )
+
+                sent += 1
+                try:
+                    await progress.edit_text(
+                        f"🧪 <b>Тест поз: {folder_arg}</b>\n\n"
+                        f"Готово: <b>{sent}/{len(pose_pairs)}</b>\n"
+                        f"Сейчас: <code>{original_file.name}</code>",
+                        parse_mode="HTML",
+                    )
+                except TelegramBadRequest:
+                    pass
+            except Exception as exc:
+                failed += 1
+                await message.answer(
+                    f"⚠️ Поза {index}/{len(pose_pairs)} — {original_file.name}\n"
+                    f"Не удалось сгенерировать: {exc}"
+                )
+
+        summary = f"✅ Тест завершён: {sent}/{len(pose_pairs)} изображений."
+        if failed:
+            summary += f"\n⚠️ Ошибок: {failed}."
+        try:
+            await progress.edit_text(summary)
+        except TelegramBadRequest:
+            await message.answer(summary)
+, raw, flags=re.I)
+        scene = (match.group(1) if match else "").strip()
+        if len(scene) >= 2 and scene[0] in {'"', "'", "“", "«"} and scene[-1] in {'"', "'", "”", "»"}:
+            scene = scene[1:-1].strip()
+        if not scene:
+            await message.answer('❌ Укажите описание картинки.\nПример: /test_prompt_builder "девушка стоит у окна в спальне"')
+            return
+
+        data = await state.get_data()
+        character_id = data.get("character_id")
+        if not character_id:
+            await message.answer("❌ Сначала откройте чат с персонажем.")
+            return
+        try:
+            character = await character_service.get(message.from_user.id, int(character_id))
+        except AppError as exc:
+            await message.answer(f"❌ Не удалось загрузить персонажа: {exc}")
+            return
+
+        root_dir = poses_root().resolve()
+        depth_files = sorted(path for path in root_dir.rglob("*_depth.png") if path.is_file())
+        if not depth_files:
+            await message.answer("❌ В библиотеке поз не найдено ни одной *_depth.png карты.")
+            return
+
+        depth_path = random.choice(depth_files)
+        pose_metadata = image_service.pose_library.get_analysis(depth_path)
+        pose_orientation = str((pose_metadata or {}).get("orientation", "")).strip()
+
+        prompt = await image_service.prompt_service.build_image_prompt(
+            ImagePromptContext(
+                character_description=character.description,
+                scene=scene,
+                pose="",
+                clothing="",
+                weight_profile=character.weight_profile,
+                bust_size=character.bust_size,
+                age_category=character.age_category,
+                hairstyle=character.hairstyle,
+                hair_color=character.hair_color,
+                consistency_strength=character.consistency_strength,
+                pose_orientation=pose_orientation,
+                pose_metadata=pose_metadata,
+            )
+        )
+
+        relative_depth = depth_path.relative_to(root_dir).as_posix()
+        metadata_text = json.dumps(pose_metadata, ensure_ascii=False, indent=2) if pose_metadata else "нет кешированного анализа"
+        await message.answer(
+            f"<b>🧪 Prompt Builder</b>\n\n"
+            f"<b>Запрос:</b> {escape(scene)}\n"
+            f"<b>Поза — только Depth:</b> <code>{escape(relative_depth)}</code>",
+            parse_mode="HTML",
+        )
+        await message.answer(
+            f"<b>Получившийся prompt:</b>\n<code>{escape(prompt.positive)}</code>",
+            parse_mode="HTML",
+        )
+        await message.answer(
+            f"<b>Pose metadata:</b>\n<code>{escape(metadata_text)}</code>",
+            parse_mode="HTML",
+        )
+        await message.answer_photo(
+            types.BufferedInputFile(depth_path.read_bytes(), filename=depth_path.name),
+            caption=f"🧩 Выбранная поза — только Depth\n{relative_depth}",
+        )
 
     @router.callback_query(F.data.startswith("pose_delete:"))
     async def delete_test_pose(callback: types.CallbackQuery):
