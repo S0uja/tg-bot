@@ -546,9 +546,9 @@ def register(router: Router, ctx: TelegramContext) -> None:
         character = characters[0]
 
         root_dir = poses_root().resolve()
-        library_path = root_dir / "pose_library_final_v6.json"
+        library_path = root_dir / ".pose_library.json"
 
-        # The final v6 file is the source of truth for this diagnostic command.
+        # The v6 pose cache is the source of truth for this diagnostic command.
         # Fall back to the live PoseLibraryIndex only if the JSON has not yet been
         # copied into the poses directory, so the command remains backwards compatible.
         entries: list[dict] = []
@@ -560,7 +560,7 @@ def register(router: Router, ctx: TelegramContext) -> None:
                     entries = [item for item in raw_entries if isinstance(item, dict)]
             except (OSError, ValueError, TypeError) as exc:
                 await message.answer(
-                    f"❌ Не удалось прочитать pose_library_final_v6.json: "
+                    f"❌ Не удалось прочитать .pose_library.json: "
                     f"<code>{escape(str(exc))}</code>",
                     parse_mode="HTML",
                 )
